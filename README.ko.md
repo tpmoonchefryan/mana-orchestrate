@@ -6,7 +6,7 @@
 
 [简体中文](README.md) · [English](README.en.md) · [日本語](README.ja.md) · **한국어** · [Français](README.fr.md)
 
-![release](https://img.shields.io/badge/release-4.1.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
+![release](https://img.shields.io/badge/release-4.2.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
 
 [하는 일은 세 가지](#하는-일은-세-가지) · [설치](#설치) · [설치한 뒤](#설치한-뒤) · [사용량을 줄이는 방법](#사용량을-줄이는-방법) · [버전](#버전) · [안에 있는 것](#안에-있는-것)
 
@@ -153,7 +153,7 @@ CC 대화 4개의 수치는 각각 약 **2.9%, 3.0%, 2.4%, 11.1%**이며 3.8%는
 
 ## 버전
 
-Einzbern과 같은 버전 번호, 같은 릴리스. 현재 4.1.0. 이 README와 SKILL.md의 내비게이션 표는 Einzbern 릴리스 때 생성된다. 이 저장소에서는 문서를 손으로 고치지 않는다.
+Einzbern과 같은 버전 번호, 같은 릴리스. 현재 4.2.0. 이 README와 SKILL.md의 내비게이션 표는 Einzbern 릴리스 때 생성된다. 이 저장소에서는 문서를 손으로 고치지 않는다.
 
 ## 안에 있는 것
 
