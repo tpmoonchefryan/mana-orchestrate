@@ -6,7 +6,7 @@
 
 [简体中文](README.md) · [English](README.en.md) · **日本語** · [한국어](README.ko.md) · [Français](README.fr.md)
 
-![release](https://img.shields.io/badge/release-4.2.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
+![release](https://img.shields.io/badge/release-4.1.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
 
 [やることは三つ](#やることは三つ) · [インストール](#インストール) · [入れたあと](#入れたあと) · [利用量を抑える仕組み](#利用量を抑える仕組み) · [バージョン](#バージョン) · [中身](#中身)
 
@@ -153,7 +153,7 @@ CC の四対話では、それぞれ約 **2.9%、3.0%、2.4%、11.1%** で、3.8
 
 ## バージョン
 
-Einzbern と同じバージョン番号、同じリリース。現在は 4.2.0。この README と SKILL.md のナビゲーション表は Einzbern のリリース時に生成される。このリポジトリでは文書を手で編集しない。
+Einzbern と同じバージョン番号、同じリリース。現在は 4.1.0。この README と SKILL.md のナビゲーション表は Einzbern のリリース時に生成される。このリポジトリでは文書を手で編集しない。
 
 ## 中身
 
