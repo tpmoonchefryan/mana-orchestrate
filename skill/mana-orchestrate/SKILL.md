@@ -1,6 +1,6 @@
 ---
 name: mana-orchestrate
-description: "The Grail grants wishes; Mana Orchestrate makes the mana flow to the right place at the right moment. It brings Einzbern, project memory, into Claude Code, Codex and DeepSeek Harness: recall before you start, write results back to the work item, record decisions as minutes, keep lessons as cards. Where Einzbern is not installed yet, it is the wizard: install, restore, update, migrate, uninstall, health check. Use it whenever Einzbern, work items, knowledge cards, minutes, .ether, or Atelier come up, or when the user asks to install or update it."
+description: "The Grail grants wishes; Mana Orchestrate makes the mana flow to the right place at the right moment. It brings Einzbern, project memory, into Claude Code, Codex and DeepSeek Harness: recall before you start, write results back to the work item, record decisions as minutes, keep lessons as cards. Where Einzbern is not installed yet, it is the wizard: install, restore, update, migrate, uninstall, health check. Use for Einzbern-managed coding, work items, knowledge cards, minutes, .ether, Atelier, installation or updates."
 ---
 
 # Mana Orchestrate
@@ -11,7 +11,7 @@ Execution protocol: tcrn.host-execution-request.v1.
 
 ## Navigation
 
-Run `node "<device directory>/engine/einzbern.mjs" <verb> --<flag> <value>`. Root: `~/.einzbern` or `EINZBERN_HOME`; if missing, install first. `commands` / `<verb> --help`: verbs/flags. Use current UTC `--at` and `--workspace <library>` as required. Closed inputs: actual engine bundle root `specs/` (beside `scripts/`), not this Skill.
+Run `node "<device directory>/engine/einzbern.mjs" <verb> --<flag> <value>`. Root: `~/.einzbern` or `EINZBERN_HOME`; if missing, install first. `commands` / `<verb> --help`: verbs/flags. UTC `--at`; `--workspace <library>` when required. Contracts: engine bundle `specs/` beside `scripts/`, not this Skill.
 
 Local sessions share queued writes without stepping aside, not cross-device exclusion. Remote submission needs serial handoff. No platform-native dot hook, background lifecycle manager or sync service is installed.
 
@@ -27,6 +27,8 @@ Local sessions share queued writes without stepping aside, not cross-device excl
 | A decision is made | `minutes-record` | As soon as you judge a decision, record D1–Dn; end with `已记 <minutes key> Dn` (`Recorded <minutes key> Dn` in English). Prior: `--supersedes`/`--withdraws`/`--coexists`. |
 | A lesson is learned | `knowledge-create`, `knowledge-capture` | Capture at most five new sourced lessons per approved batch; read back. Use stable project IDs and repository-relative evidence paths, not device paths. No progress in AGENTS. |
 | Configuration / UI | `settings-catalog`, `variable-list` | AGENTS: principles only. Read scoped config and optional `design.authority`: `specs/configuration-contract-v1.md`. |
+
+Coding tasks: read `specs/coding-style-v1.md`.
 
 ## Three steps
 
