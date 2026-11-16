@@ -162,7 +162,7 @@ export function queryWindows(script, timeoutMs = 5000) {
   if (!systemRoot || !isAbsolute(systemRoot)) throw new Error("Windows system directory is unavailable");
   const executable = join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
   // A PowerShell 7 parent can export module paths incompatible with Windows PowerShell.
-  const command = `$ErrorActionPreference = 'Stop'; $env:PSModulePath = Join-Path $PSHOME 'Modules'; ${script}`;
+  const command = `$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $env:PSModulePath = Join-Path $PSHOME 'Modules'; ${script}`;
   return JSON.parse(execFileSync(executable, ["-NoProfile", "-NonInteractive", "-Command", command], {
     encoding: "utf8", timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024, windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
   }));
