@@ -259,3 +259,9 @@ or method change uses peer-record with the exact live Owner decision and actual
 actor, followed by readback; terminal batches never retire roles implicitly.
 Use owned isolated homes for validation. Source/fixture results and old prototypes
 do not certify current native installation readiness.
+
+The managed-sections check reports observed file existence and SHA-256 separately
+from configured sections. Missing required `AGENTS.md` reports `MANAGED_FILE_MISSING`.
+Native host loading remains `unverified` until the host supplies loading evidence.
+Unselected host integrations are inapplicable. Selected integrations retain their
+missing-hook and missing-skill checks.

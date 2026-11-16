@@ -198,3 +198,9 @@ or method change uses peer-record with the exact live Owner decision and actual
 actor, followed by readback; terminal batches never retire roles implicitly.
 Use owned isolated homes for validation. Source/fixture results and old prototypes
 do not certify current native installation readiness.
+
+When effective configuration enables AGENTS generation, update and repair restore
+a missing whole `AGENTS.md` from the current managed sections, including when
+other devices already recorded them. Existing file edits retain their managed
+section conflict handling. Inspect each file receipt’s `exists` and `sha256`.
+`hostLoad: "unverified"` requires a separate native instruction-source observation.

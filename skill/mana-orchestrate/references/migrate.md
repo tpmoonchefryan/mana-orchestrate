@@ -235,7 +235,7 @@ the plan blocks with `LEGACY_IMPORT_MISMATCH`. With the same omission, a migrate
 skipped on a repeated apply and the reason and old source evidence remain visible.
 
 For the approved TMS choice, `store.json` and
-`metadata/knowledge:af064728aab1f7daa1440840.json` remain unchanged in the old workspace.
+`metadata/<knowledge-id>.json` remain unchanged in the old workspace.
 After the actual migration, reconstruct `CARD-FALSIFIABLE-NOT-CORRECT` and
 `CARD-COUNT-ONLY-GATE` from their content through `knowledge-create`; the normal duplicate and
 language gates still apply. Reconstruction is a later migration action, never an import repair.
