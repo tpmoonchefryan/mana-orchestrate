@@ -157,6 +157,10 @@ function safePath(path) {
     path.split("/").some((part) => part === "" || part === "." || part === "..")) {
     fail("INSTALL_ARCHIVE_INVALID", `the archive holds ${JSON.stringify(path)}, a path that leaves the directory it is unpacked into`, { path });
   }
+  if (process.platform === "win32" && path.split("/").some(part =>
+    /[<>:"|?*\u0000-\u001f]/u.test(part) || /[. ]$/u.test(part) || /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(part))) {
+    fail("INSTALL_ARCHIVE_INVALID", `the archive holds a Windows-unsafe path ${JSON.stringify(path)}`, { path });
+  }
   return path;
 }
 
@@ -191,8 +195,9 @@ function readUstar(archive) {
     }
     if (type !== "0" && type !== "\0") fail("INSTALL_ARCHIVE_INVALID", `${name} is a tar entry of type ${JSON.stringify(type)}; only files are unpacked`, { path: name });
     const path = safePath(name);
-    if (seen.has(path)) fail("INSTALL_ARCHIVE_INVALID", `${path} is in the archive twice`, { path });
-    seen.add(path);
+    const identity = process.platform === "win32" ? path.toLowerCase() : path;
+    if (seen.has(identity)) fail("INSTALL_ARCHIVE_INVALID", `${path} is in the archive twice`, { path });
+    seen.add(identity);
     files.push({ path, mode: octal(header, 100, 8) & 0o777, bytes: archive.subarray(start, start + size) });
   }
 }

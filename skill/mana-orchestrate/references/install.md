@@ -325,6 +325,22 @@ the user already has and fetches nothing, and `--version <version>` downloads th
 download is the only network use of the whole installation, so ask the user before it. The step
 answers `INSTALL_ENGINE_READY`; then plan as below.
 
+### Windows PowerShell
+
+Use the installed Node executable and quote paths containing spaces. This example
+installs a local release archive into an explicit device directory.
+
+```powershell
+node "<skill directory>\scripts\install.mjs" --archive "C:\Downloads\einzbern-<version>.tar.gz" --home "C:\Einzbern Device"
+node "C:\Einzbern Device\engine\einzbern.mjs" commands
+```
+
+The archive's SHA-256 sidecar is required when `--sha256` is omitted. Windows
+installation rejects reserved device names, alternate data streams, trailing
+dots or spaces and case-colliding file names. Runtime directory forwarding uses
+NTFS junctions. Local paths stored relative to the device directory require the
+same Windows volume. Supply an explicit `--home` when testing an isolated install.
+
 ## Questions (one screen)
 
 Ask the whole list at once, in one message. The list is the same on both hosts: Claude Code asks
