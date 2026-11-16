@@ -6,7 +6,7 @@ import { lstat, open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, toNamespacedPath } from "node:path";
 
-let directoryFlusher;
+let fileHelper;
 
 /** Build a process-local native helper under the caller's protected temp directory. */
 export function compileWindowsHelper(name, source) {
@@ -29,43 +29,16 @@ export function compileWindowsHelper(name, source) {
   return executable;
 }
 
-/** Compile once per process so frequent durable writes avoid repeated PowerShell startup. */
-function useWindowsDirectoryHandle(path, writableOnly) {
-  if (!directoryFlusher) {
-    const source = `using System; using System.Runtime.InteropServices;
-public static class FlushDirectory {
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern IntPtr CreateFile(string path, uint access, uint share, IntPtr security, uint creation, uint flags, IntPtr template);
-  [DllImport("kernel32.dll", SetLastError=true)] static extern bool FlushFileBuffers(IntPtr handle);
-  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
-  public static int Main(string[] args) {
-    bool probe = args[1] == "probe";
-    // FILE_ADD_FILE and FILE_ADD_SUBDIRECTORY check the calling token without mutating the directory.
-    IntPtr handle = CreateFile(args[0], probe ? 6u : 0x40000000u, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
-    if (handle == new IntPtr(-1)) return Marshal.GetLastWin32Error();
-    try { return probe || FlushFileBuffers(handle) ? 0 : Marshal.GetLastWin32Error(); }
-    finally { CloseHandle(handle); }
-  }
-}`;
-    directoryFlusher = compileWindowsHelper("flush-directory.exe", source);
-  }
-  execFileSync(directoryFlusher, [toNamespacedPath(path), writableOnly ? "probe" : "flush"], { windowsHide: true, timeout: 15_000, stdio: "ignore" });
-}
-
-export function syncWindowsDirectory(path) { useWindowsDirectoryHandle(path, false); }
-export function assertWritableWindowsDirectory(path) { useWindowsDirectoryHandle(path, true); }
-
-let privateFileCreator;
-
-/** Create the name and its private DACL together, then bind Node's handle to that exact file. */
-export async function openPrivateWindowsFile(path) {
-  if (!privateFileCreator) {
+// File creation compiles the directory flusher before any two-link publication window opens.
+function windowsFileHelper() {
+  if (!fileHelper) {
     const source = `using System;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Microsoft.Win32.SafeHandles;
-public static class EinzbernPrivateFile {
+public static class EinzbernFiles {
   [StructLayout(LayoutKind.Sequential)]
   struct SecurityAttributes { public int Length; public IntPtr Descriptor; public int InheritHandle; }
   [StructLayout(LayoutKind.Sequential)]
@@ -74,7 +47,22 @@ public static class EinzbernPrivateFile {
   static extern SafeFileHandle CreateFile(string path, uint access, uint share, ref SecurityAttributes security, uint disposition, uint flags, IntPtr template);
   [DllImport("kernel32.dll", SetLastError=true)]
   static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, int kind, out FileIdInfo info, uint size);
+  [DllImport("kernel32.dll", EntryPoint="CreateFileW", CharSet=CharSet.Unicode, SetLastError=true)]
+  static extern SafeFileHandle OpenDirectory(string path, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+  [DllImport("kernel32.dll", SetLastError=true)]
+  static extern bool FlushFileBuffers(SafeFileHandle handle);
   public static int Main(string[] args) {
+    if (args.Length != 2) return 87;
+    if (args[0] == "create") return CreatePrivate(args[1]);
+    bool probe = args[0] == "probe";
+    if (!probe && args[0] != "flush") return 87;
+    // FILE_ADD_FILE and FILE_ADD_SUBDIRECTORY check the caller's token without writing.
+    using (var directory = OpenDirectory(args[1], probe ? 6u : 0x40000000u, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero)) {
+      if (directory.IsInvalid) return Marshal.GetLastWin32Error();
+      return probe || FlushFileBuffers(directory) ? 0 : Marshal.GetLastWin32Error();
+    }
+  }
+  static int CreatePrivate(string path) {
     var owner = WindowsIdentity.GetCurrent().User;
     var acl = new FileSecurity();
     acl.SetOwner(owner);
@@ -85,7 +73,7 @@ public static class EinzbernPrivateFile {
     var pinned = GCHandle.Alloc(descriptor, GCHandleType.Pinned);
     try {
       var security = new SecurityAttributes { Length=Marshal.SizeOf(typeof(SecurityAttributes)), Descriptor=pinned.AddrOfPinnedObject() };
-      using (var file = CreateFile(args[0], 0xC0000000, 7, ref security, 1, 0x80, IntPtr.Zero)) {
+      using (var file = CreateFile(path, 0xC0000000, 7, ref security, 1, 0x80, IntPtr.Zero)) {
         if (file.IsInvalid) return Marshal.GetLastWin32Error();
         FileIdInfo id;
         if (!GetFileInformationByHandleEx(file, 18, out id, (uint)Marshal.SizeOf(typeof(FileIdInfo)))) return Marshal.GetLastWin32Error();
@@ -97,11 +85,23 @@ public static class EinzbernPrivateFile {
     } finally { pinned.Free(); }
   }
 }`;
-    privateFileCreator = compileWindowsHelper("create-private-file.exe", source);
+    fileHelper = compileWindowsHelper("filesystem.exe", source);
   }
+  return fileHelper;
+}
+
+function useWindowsDirectoryHandle(path, operation) {
+  execFileSync(windowsFileHelper(), [operation, toNamespacedPath(path)], { windowsHide: true, timeout: 15_000, stdio: "ignore" });
+}
+
+export function syncWindowsDirectory(path) { useWindowsDirectoryHandle(path, "flush"); }
+export function assertWritableWindowsDirectory(path) { useWindowsDirectoryHandle(path, "probe"); }
+
+/** Create the name and its private DACL together, then bind Node's handle to that exact file. */
+export async function openPrivateWindowsFile(path) {
   let identity;
   try {
-    identity = execFileSync(privateFileCreator, [toNamespacedPath(path)], { encoding: "utf8", windowsHide: true, timeout: 15_000 }).trim();
+    identity = execFileSync(windowsFileHelper(), ["create", toNamespacedPath(path)], { encoding: "utf8", windowsHide: true, timeout: 15_000 }).trim();
   } catch (error) {
     if (error.status === 80 || error.status === 183) throw Object.assign(new Error("EEXIST: private file already exists"), { code: "EEXIST", syscall: "open", path });
     throw error;
