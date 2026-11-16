@@ -16,11 +16,12 @@ function environmentValue(env, name) {
 function windowsExecutable(command, options) {
   const env = options.env ?? process.env;
   const cwd = options.cwd ?? process.cwd();
-  const directories = /[\\/]/u.test(command) ? [""] : [cwd, ...(environmentValue(env, "PATH") ?? "").split(delimiter)];
+  const directories = /[\\/]/u.test(command) ? [""]
+    : (environmentValue(env, "PATH") ?? "").split(delimiter).map(directory => directory.replace(/^"|"$/gu, "")).filter(Boolean);
   const extensions = extname(command) ? [""] : [...(environmentValue(env, "PATHEXT") ?? ".COM;.EXE;.BAT;.CMD").split(";"), ""];
   for (const directory of directories) {
     for (const extension of extensions) {
-      const path = resolve(cwd, directory.replace(/^"|"$/gu, ""), command + extension);
+      const path = resolve(cwd, directory, command + extension);
       try { if (statSync(path).isFile()) return path; } catch { /* continue PATH search */ }
     }
   }
