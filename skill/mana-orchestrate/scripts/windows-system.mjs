@@ -8,12 +8,30 @@ import { dirname, isAbsolute, join, toNamespacedPath } from "node:path";
 
 let directoryFlusher;
 
+/** Build a process-local native helper under the caller's protected temp directory. */
+export function compileWindowsHelper(name, source) {
+  if (!/^[a-z][a-z0-9-]*\.exe$/u.test(name)) throw new Error("Invalid native helper name");
+  const directory = join(tmpdir(), `einzbern-native-${randomUUID()}`);
+  if (!createPrivateWindowsDirectory(directory)) throw new Error("Native helper directory already exists");
+  const executable = join(directory, name);
+  const encodedSource = Buffer.from(source).toString("base64");
+  const encodedExecutable = Buffer.from(executable).toString("base64");
+  try {
+    queryWindows(`$source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedSource}')); $output=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedExecutable}')); Add-Type -TypeDefinition $source -OutputAssembly $output -OutputType ConsoleApplication; ConvertTo-Json -InputObject $true`, 15_000);
+  } catch (error) {
+    try { unlinkSync(executable); } catch { /* compilation may not have created a file */ }
+    rmdirSync(directory);
+    throw error;
+  }
+  process.once("exit", () => {
+    try { unlinkSync(executable); rmdirSync(directory); } catch { /* a still-running or killed helper can leave its private directory */ }
+  });
+  return executable;
+}
+
 /** Compile once per process so frequent durable writes avoid repeated PowerShell startup. */
 export function syncWindowsDirectory(path) {
   if (!directoryFlusher) {
-    const directory = join(tmpdir(), `einzbern-native-${randomUUID()}`);
-    if (!createPrivateWindowsDirectory(directory)) throw new Error("Native helper directory already exists");
-    const executable = join(directory, "flush-directory.exe");
     const source = `using System; using System.Runtime.InteropServices;
 public static class FlushDirectory {
   [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern IntPtr CreateFile(string path, uint access, uint share, IntPtr security, uint creation, uint flags, IntPtr template);
@@ -26,19 +44,7 @@ public static class FlushDirectory {
     finally { CloseHandle(handle); }
   }
 }`;
-    const encodedSource = Buffer.from(source).toString("base64");
-    const encodedExecutable = Buffer.from(executable).toString("base64");
-    try {
-      queryWindows(`$source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedSource}')); $output=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedExecutable}')); Add-Type -TypeDefinition $source -OutputAssembly $output -OutputType ConsoleApplication; ConvertTo-Json -InputObject $true`, 15_000);
-      directoryFlusher = executable;
-    } catch (error) {
-      try { unlinkSync(executable); } catch { /* compilation may not have created a file */ }
-      rmdirSync(directory);
-      throw error;
-    }
-    process.once("exit", () => {
-      try { unlinkSync(executable); rmdirSync(directory); } catch { /* a killed process can leave its private helper */ }
-    });
+    directoryFlusher = compileWindowsHelper("flush-directory.exe", source);
   }
   execFileSync(directoryFlusher, [toNamespacedPath(path)], { windowsHide: true, timeout: 15_000, stdio: "ignore" });
 }

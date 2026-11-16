@@ -5,6 +5,7 @@ import { EventEmitter } from "node:events";
 import { statSync, writeSync } from "node:fs";
 import { delimiter, extname, isAbsolute, join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
+import { compileWindowsHelper } from "./windows-system.mjs";
 
 function environmentValue(env, name) {
   if (env[name] !== undefined) return env[name];
@@ -56,11 +57,14 @@ export function commandInvocation(command, args = [], options = {}) {
 }
 
 export function spawnCommandSync(command, args = [], options = {}) {
+  const startedAt = performance.now();
   try {
     const invocation = commandInvocation(command, args, options);
     if (process.platform !== "win32") return spawnSync(invocation.command, invocation.args, invocation.options);
     const monitor = windowsMonitorInvocation(invocation, options);
-    const result = spawnSync(monitor.command, monitor.args, { ...options, ...monitor.options, input: options.input, encoding: "utf8", maxBuffer: (options.maxBuffer ?? 1024 * 1024) * 2 });
+    const timeout = options.timeout > 0 ? Math.ceil(options.timeout - (performance.now() - startedAt)) : options.timeout;
+    if (timeout !== undefined && timeout < 1 && options.timeout > 0) throw Object.assign(new Error("Windows command startup timed out"), { code: "ETIMEDOUT" });
+    const result = spawnSync(monitor.command, monitor.args, { ...options, ...monitor.options, timeout, input: options.input, encoding: "utf8", maxBuffer: (options.maxBuffer ?? 1024 * 1024) * 2 });
     const streams = { stdout: [], stderr: [] };
     let terminal;
     let error = result.error;
@@ -101,6 +105,17 @@ using System.Text;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
 public static class EinzbernJob {
+  public static int Main(string[] args) {
+    if (args.Length != 3) return 1;
+    string command = Environment.GetEnvironmentVariable("EINZBERN_JOB_PAYLOAD");
+    string job = Environment.GetEnvironmentVariable("EINZBERN_WINDOWS_JOB");
+    Environment.SetEnvironmentVariable("EINZBERN_JOB_PAYLOAD", null);
+    if (Environment.GetEnvironmentVariable("EINZBERN_TEST_DIAGNOSTIC_ROOT") == "1") {
+      Environment.SetEnvironmentVariable("TCRN_TEST_CONTROLLER_PROCESS_GROUP", System.Diagnostics.Process.GetCurrentProcess().Id.ToString());
+      Environment.SetEnvironmentVariable("EINZBERN_TEST_DIAGNOSTIC_ROOT", null);
+    }
+    return Run(args[0], command, args[1], int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), job);
+  }
   [StructLayout(LayoutKind.Sequential)] struct Limits {
     public long ProcessTime, JobTime;
     public uint Flags;
@@ -230,14 +245,16 @@ function powershellPath() {
   return join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
 }
 
+let windowsJobMonitor;
 function windowsMonitorInvocation(invocation, options) {
+  // Compile in the host environment. A caller may deliberately give the child
+  // an empty environment, which cannot bootstrap PowerShell's C# compiler.
+  windowsJobMonitor ??= compileWindowsHelper("job-monitor.exe", WINDOWS_JOB_SOURCE);
   const jobName = `Local\\Einzbern-${randomUUID()}`;
   const commandLine = [quoteArgument(invocation.command), ...invocation.args.map(arg => invocation.options.windowsVerbatimArguments ? arg : quoteArgument(arg))].join(" ");
-  const payload = Buffer.from(JSON.stringify({ executable: invocation.command, commandLine, directory: resolve(options.cwd ?? process.cwd()), parent: process.pid, jobName })).toString("base64");
-  const script = "$ErrorActionPreference='Stop'; $env:PSModulePath=Join-Path $PSHOME 'Modules'; Add-Type -TypeDefinition $env:EINZBERN_JOB_SOURCE; $p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:EINZBERN_JOB_PAYLOAD)) | ConvertFrom-Json; Remove-Item Env:EINZBERN_JOB_SOURCE,Env:EINZBERN_JOB_PAYLOAD; if ($env:EINZBERN_TEST_DIAGNOSTIC_ROOT -eq '1') { $env:TCRN_TEST_CONTROLLER_PROCESS_GROUP=[string]$PID; Remove-Item Env:EINZBERN_TEST_DIAGNOSTIC_ROOT }; exit [EinzbernJob]::Run($p.executable,$p.commandLine,$p.directory,$p.parent,$p.jobName)";
-  return { jobName, command: powershellPath(), args: ["-NoProfile", "-NonInteractive", "-Command", script], options: {
-    cwd: options.cwd, windowsHide: true, stdio: [Array.isArray(options.stdio) ? options.stdio[0] ?? "pipe" : options.stdio ?? "pipe", "pipe", "pipe"],
-    env: { ...(options.env ?? process.env), EINZBERN_WINDOWS_JOB: jobName, EINZBERN_JOB_SOURCE: WINDOWS_JOB_SOURCE, EINZBERN_JOB_PAYLOAD: payload },
+  return { jobName, command: windowsJobMonitor, args: [invocation.command, resolve(options.cwd ?? process.cwd()), String(process.pid)], options: {
+    cwd: options.cwd, windowsHide: true, windowsVerbatimArguments: false, stdio: [Array.isArray(options.stdio) ? options.stdio[0] ?? "pipe" : options.stdio ?? "pipe", "pipe", "pipe"],
+    env: { ...(options.env ?? process.env), EINZBERN_WINDOWS_JOB: jobName, EINZBERN_JOB_PAYLOAD: commandLine },
   } };
 }
 
