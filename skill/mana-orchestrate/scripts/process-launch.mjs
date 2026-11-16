@@ -23,7 +23,7 @@ function windowsExecutable(command, options) {
       try { if (statSync(path).isFile()) return path; } catch { /* continue PATH search */ }
     }
   }
-  throw Object.assign(new Error(`Executable not found: ${command}`), { code: "ENOENT", path: command });
+  throw Object.assign(new Error(`ENOENT: Executable not found: ${command}`), { code: "ENOENT", path: command });
 }
 
 // CommandLineToArgvW / the Microsoft C runtime quoting convention.
