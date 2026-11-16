@@ -2,8 +2,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { statSync, writeSync } from "node:fs";
-import { delimiter, extname, isAbsolute, join, resolve } from "node:path";
+import { closeSync, openSync, readFileSync, statSync, unlinkSync, writeSync } from "node:fs";
+import { delimiter, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 import { compileWindowsHelper } from "./windows-system.mjs";
 
@@ -63,32 +63,31 @@ export function spawnCommandSync(command, args = [], options = {}) {
     const invocation = commandInvocation(command, args, options);
     if (process.platform !== "win32") return spawnSync(invocation.command, invocation.args, invocation.options);
     const monitor = windowsMonitorInvocation(invocation, options);
-    const timeout = options.timeout > 0 ? Math.ceil(options.timeout - (performance.now() - startedAt)) : options.timeout;
-    if (timeout !== undefined && timeout < 1 && options.timeout > 0) throw Object.assign(new Error("Windows command startup timed out"), { code: "ETIMEDOUT" });
-    const result = spawnSync(monitor.command, monitor.args, { ...options, ...monitor.options, timeout, input: options.input, encoding: "utf8", maxBuffer: (options.maxBuffer ?? 1024 * 1024) * 2 });
-    const streams = { stdout: [], stderr: [] };
-    let terminal;
-    let error = result.error;
-    let pid = result.pid;
-    // A timeout or capture overflow can end inside the last protocol frame.
-    const lines = (result.stdout ?? "").split("\n");
-    lines.pop();
-    for (const line of lines.filter(Boolean)) {
-      const event = JSON.parse(line);
-      if (event.event === "stdout" || event.event === "stderr") streams[event.event].push(Buffer.from(event.data, "base64"));
-      else if (event.event === "close") terminal = event;
-      else if (event.event === "spawn") pid = event.pid;
-      else if (event.event === "error") error = Object.assign(new Error(`Windows process launch failed (${event.code})`), { code: event.code === 2 ? "ENOENT" : "EIO" });
+    // Keep monitor events separate so the payload writes directly to the caller's stdio.
+    const receiptPath = join(dirname(monitor.command), randomUUID());
+    const receipt = openSync(receiptPath, "wx+", 0o600);
+    try {
+      const timeout = options.timeout > 0 ? Math.ceil(options.timeout - (performance.now() - startedAt)) : options.timeout;
+      if (options.timeout > 0 && timeout < 1) throw Object.assign(new Error("Windows command startup timed out"), { code: "ETIMEDOUT" });
+      const result = spawnSync(monitor.command, [...monitor.args, receiptPath], {
+        ...options, ...monitor.options, stdio: options.stdio, timeout,
+      });
+      let pid = 0;
+      let status = null;
+      let error = result.error;
+      // A killed monitor can leave a partial final line after its last flushed event.
+      for (const line of readFileSync(receipt, "utf8").split("\n").slice(0, -1)) {
+        const event = JSON.parse(line);
+        if (event.event === "spawn") pid = event.pid;
+        else if (event.event === "close") status = event.code;
+        else if (event.event === "error") error ??= windowsLaunchError(event.code);
+      }
+      if (status === null && !error) error = Object.assign(new Error("Windows job monitor exited before joining its processes"), { code: "EIO" });
+      return { ...result, pid, status, error };
+    } finally {
+      closeSync(receipt);
+      unlinkSync(receiptPath);
     }
-    if (!terminal && !error) error = new Error(`Windows job monitor failed: ${result.stderr ?? ""}`);
-    const decode = bytes => options.encoding && options.encoding !== "buffer" ? bytes.toString(options.encoding) : bytes;
-    const stdout = decode(Buffer.concat(streams.stdout));
-    const stderr = decode(Buffer.concat(streams.stderr));
-    for (const [index, channel] of [[1, "stdout"], [2, "stderr"]]) {
-      const destination = options.stdio === "inherit" || options.stdio?.[index] === "inherit" ? index : options.stdio?.[index];
-      if (Number.isInteger(destination)) writeSync(destination, Buffer.concat(streams[channel]));
-    }
-    return { ...result, pid, stdout, stderr, output: [null, stdout, stderr], status: terminal?.code ?? null, error };
   } catch (error) {
     return { pid: 0, output: [], stdout: null, stderr: null, status: null, signal: null, error };
   }
@@ -107,7 +106,7 @@ using System.Threading;
 using Microsoft.Win32.SafeHandles;
 public static class EinzbernJob {
   public static int Main(string[] args) {
-    if (args.Length != 3) return 1;
+    if (args.Length != 3 && args.Length != 4) return 1;
     string command = Environment.GetEnvironmentVariable("EINZBERN_JOB_PAYLOAD");
     string job = Environment.GetEnvironmentVariable("EINZBERN_WINDOWS_JOB");
     Environment.SetEnvironmentVariable("EINZBERN_JOB_PAYLOAD", null);
@@ -115,7 +114,16 @@ public static class EinzbernJob {
       Environment.SetEnvironmentVariable("TCRN_TEST_CONTROLLER_PROCESS_GROUP", System.Diagnostics.Process.GetCurrentProcess().Id.ToString());
       Environment.SetEnvironmentVariable("EINZBERN_TEST_DIAGNOSTIC_ROOT", null);
     }
-    return Run(args[0], command, args[1], int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), job);
+    int parentId = int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture);
+    if (args.Length == 3) {
+      events = Console.Out;
+      return Run(args[0], command, args[1], parentId, job, false);
+    }
+    using (var receipt = new FileStream(args[3], FileMode.Open, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
+    using (var writer = new StreamWriter(receipt, new UTF8Encoding(false))) {
+      events = writer;
+      return Run(args[0], command, args[1], parentId, job, true);
+    }
   }
   [StructLayout(LayoutKind.Sequential)] struct Limits {
     public long ProcessTime, JobTime;
@@ -167,7 +175,8 @@ public static class EinzbernJob {
   [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int number);
   [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
   static readonly object OutputLock = new object();
-  static void Emit(string value) { lock (OutputLock) { Console.Out.WriteLine(value); Console.Out.Flush(); } }
+  static TextWriter events;
+  static void Emit(string value) { lock (OutputLock) { events.WriteLine(value); events.Flush(); } }
   static void Check(bool result) { if (!result) throw new Win32Exception(Marshal.GetLastWin32Error()); }
   static Thread Pump(IntPtr handle, string channel) {
     var thread = new Thread(() => {
@@ -182,7 +191,7 @@ public static class EinzbernJob {
     thread.Start();
     return thread;
   }
-  public static int Run(string executable, string command, string directory, int parentId, string jobName) {
+  public static int Run(string executable, string command, string directory, int parentId, string jobName, bool directOutput) {
     IntPtr job = IntPtr.Zero, parent = IntPtr.Zero, outputRead = IntPtr.Zero, outputWrite = IntPtr.Zero, errorRead = IntPtr.Zero, errorWrite = IntPtr.Zero;
     ProcessInfo process = new ProcessInfo();
     try {
@@ -198,20 +207,27 @@ public static class EinzbernJob {
       limits.Basic.Flags = 0x2000;
       Check(SetInformationJobObject(job, 9, ref limits, Marshal.SizeOf(limits)));
       using (var cancel = new EventWaitHandle(false, EventResetMode.ManualReset, jobName + "-cancel")) {
-        var security = new Security { Length = Marshal.SizeOf(typeof(Security)), Inherit = 1 };
-        Check(CreatePipe(out outputRead, out outputWrite, ref security, 0));
-        Check(CreatePipe(out errorRead, out errorWrite, ref security, 0));
-        Check(SetHandleInformation(outputRead, 1, 0));
-        Check(SetHandleInformation(errorRead, 1, 0));
-        var startup = new Startup { Size = Marshal.SizeOf(typeof(Startup)), Flags = 0x100, Input = GetStdHandle(-10), Output = outputWrite, Error = errorWrite };
+        var startup = new Startup { Size = Marshal.SizeOf(typeof(Startup)), Flags = 0x100, Input = GetStdHandle(-10), Output = GetStdHandle(-11), Error = GetStdHandle(-12) };
+        if (!directOutput) {
+          var security = new Security { Length = Marshal.SizeOf(typeof(Security)), Inherit = 1 };
+          Check(CreatePipe(out outputRead, out outputWrite, ref security, 0));
+          Check(CreatePipe(out errorRead, out errorWrite, ref security, 0));
+          Check(SetHandleInformation(outputRead, 1, 0));
+          Check(SetHandleInformation(errorRead, 1, 0));
+          startup.Output = outputWrite;
+          startup.Error = errorWrite;
+        }
         Check(CreateProcess(executable, new StringBuilder(command), IntPtr.Zero, IntPtr.Zero, true, 0x08000404, IntPtr.Zero, directory, ref startup, out process));
         Check(AssignProcessToJobObject(job, process.Process));
         if (ResumeThread(process.Thread) == 0xffffffff) throw new Win32Exception(Marshal.GetLastWin32Error());
-        CloseHandle(outputWrite); outputWrite = IntPtr.Zero;
-        CloseHandle(errorWrite); errorWrite = IntPtr.Zero;
         Emit("{\"event\":\"spawn\",\"pid\":" + process.ProcessId + "}");
-        var stdout = Pump(outputRead, "stdout"); outputRead = IntPtr.Zero;
-        var stderr = Pump(errorRead, "stderr"); errorRead = IntPtr.Zero;
+        Thread stdout = null, stderr = null;
+        if (!directOutput) {
+          CloseHandle(outputWrite); outputWrite = IntPtr.Zero;
+          CloseHandle(errorWrite); errorWrite = IntPtr.Zero;
+          stdout = Pump(outputRead, "stdout"); outputRead = IntPtr.Zero;
+          stderr = Pump(errorRead, "stderr"); errorRead = IntPtr.Zero;
+        }
         var handles = new IntPtr[] { process.Process, parent, cancel.SafeWaitHandle.DangerousGetHandle() };
         uint wait = WaitForMultipleObjects(3, handles, false, 0xffffffff);
         if (wait > 2) throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -223,7 +239,8 @@ public static class EinzbernJob {
           Check(QueryInformationJobObject(job, 1, out accounting, Marshal.SizeOf(typeof(Accounting)), IntPtr.Zero));
           if (accounting.ActiveProcesses > 0) Thread.Sleep(10);
         } while (accounting.ActiveProcesses > 0);
-        stdout.Join(); stderr.Join();
+        if (stdout != null) stdout.Join();
+        if (stderr != null) stderr.Join();
         Emit("{\"event\":\"close\",\"code\":" + code + ",\"cancelled\":" + (wait == 0 ? "false" : "true") + "}");
         return 0;
       }
@@ -257,6 +274,10 @@ function windowsMonitorInvocation(invocation, options) {
     cwd: options.cwd, windowsHide: true, windowsVerbatimArguments: false, stdio: [Array.isArray(options.stdio) ? options.stdio[0] ?? "pipe" : options.stdio ?? "pipe", "pipe", "pipe"],
     env: { ...(options.env ?? process.env), EINZBERN_WINDOWS_JOB: jobName, EINZBERN_JOB_PAYLOAD: commandLine },
   } };
+}
+
+function windowsLaunchError(code) {
+  return Object.assign(new Error(`Windows process launch failed (${code})`), { code: code === 2 ? "ENOENT" : "EIO" });
 }
 
 export function spawnCommand(command, args = [], options = {}) {
@@ -326,7 +347,7 @@ export function spawnCommand(command, args = [], options = {}) {
           });
         }
       } else if (event.event === "close") terminal = event;
-      else if (event.event === "error") launchError = Object.assign(new Error(`Windows process launch failed (${event.code})`), { code: event.code === 2 ? "ENOENT" : "EIO" });
+      else if (event.event === "error") launchError = windowsLaunchError(event.code);
     }
   });
   monitor.stderr.on("data", chunk => { monitorError = (monitorError + chunk.toString()).slice(-4096); });
