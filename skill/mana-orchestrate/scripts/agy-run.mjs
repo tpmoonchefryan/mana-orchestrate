@@ -5,7 +5,9 @@
 // It does not make an admission decision, choose a fallback, bypass tool permissions, or claim
 // that the requested model was actually used.
 
-import { spawn } from "node:child_process";
+import { spawnCommand as spawn } from "./process-launch.mjs";
+import { randomUUID } from "node:crypto";
+import { createPrivateWindowsDirectory } from "./windows-system.mjs";
 import { constants, statSync } from "node:fs";
 import { lstat, mkdtemp, open, rm } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -46,21 +48,26 @@ function resolveDefaultAgyExecutable(options = {}) {
   if (options.executable !== undefined) return options.executable;
   if (options.spawn !== undefined) return "agy";
   const env = options.env ?? process.env;
-  const pathDirs = typeof env.PATH === "string" ? env.PATH.split(process.platform === "win32" ? ";" : ":").filter(Boolean) : [];
-  const binName = process.platform === "win32" ? "agy.exe" : "agy";
+  const pathKey = Object.keys(env).find(key => key.toLowerCase() === "path");
+  const pathDirs = (env.PATH ?? env[pathKey] ?? "").split(process.platform === "win32" ? ";" : ":").filter(Boolean);
+  const binNames = process.platform === "win32" ? ["agy.exe", "agy.com", "agy.cmd", "agy.bat"] : ["agy"];
   for (const dir of pathDirs) {
-    try {
-      if (statSync(join(dir, binName)).isFile()) return "agy";
-    } catch {
-      // keep scanning PATH
+    for (const binName of binNames) {
+      try {
+        if (statSync(join(dir.replace(/^"|"$/gu, ""), binName)).isFile()) return "agy";
+      } catch {
+        // Continue PATH search.
+      }
     }
   }
-  if (options.env?.PATH === undefined) {
-    const localBin = join(options.home ? resolve(options.home) : homedir(), ".local", "bin", binName);
-    try {
-      if (statSync(localBin).isFile()) return localBin;
-    } catch {
-      // fall back to bare "agy" so ENOENT is reported truthfully
+  if (!options.env || !Object.keys(options.env).some(key => key.toLowerCase() === "path")) {
+    for (const binName of binNames) {
+      const localBin = join(options.home ? resolve(options.home) : homedir(), ".local", "bin", binName);
+      try {
+        if (statSync(localBin).isFile()) return localBin;
+      } catch {
+        // Fall back to bare "agy" so ENOENT is reported truthfully.
+      }
     }
   }
   return "agy";
@@ -129,6 +136,11 @@ function invokeEngine(command, args, options = {}) {
 }
 
 async function privateTemporaryDirectory(output) {
+  if (process.platform === "win32") {
+    const path = join(dirname(output), `.einzbern-agy-run-${randomUUID()}`);
+    if (!createPrivateWindowsDirectory(path)) throw new Error("Private process-return directory already exists");
+    return path;
+  }
   return mkdtemp(join(dirname(output), ".einzbern-agy-run-"));
 }
 

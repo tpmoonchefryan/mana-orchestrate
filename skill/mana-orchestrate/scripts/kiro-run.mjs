@@ -4,7 +4,9 @@
 // Kiro's non-interactive runner consumes an existing host-native preparation. It does not make
 // an admission decision, choose a fallback, or claim that the requested model was used.
 
-import { spawn } from "node:child_process";
+import { spawnCommand as spawn } from "./process-launch.mjs";
+import { randomUUID } from "node:crypto";
+import { createPrivateWindowsDirectory } from "./windows-system.mjs";
 import { constants } from "node:fs";
 import { lstat, mkdtemp, open, rm } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -88,6 +90,11 @@ function invokeEngine(command, args, options = {}) {
 }
 
 async function privateTemporaryDirectory(output) {
+  if (process.platform === "win32") {
+    const path = join(dirname(output), `.einzbern-kiro-run-${randomUUID()}`);
+    if (!createPrivateWindowsDirectory(path)) throw new Error("Private process-return directory already exists");
+    return path;
+  }
   const path = await mkdtemp(join(dirname(output), ".einzbern-kiro-run-"));
   return path;
 }

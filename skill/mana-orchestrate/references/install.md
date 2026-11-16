@@ -338,8 +338,14 @@ node "C:\Einzbern Device\engine\einzbern.mjs" commands
 The archive's SHA-256 sidecar is required when `--sha256` is omitted. Windows
 installation rejects reserved device names, alternate data streams, trailing
 dots or spaces and case-colliding file names. Runtime directory forwarding uses
-NTFS junctions. Local paths stored relative to the device directory require the
-same Windows volume. Supply an explicit `--home` when testing an isolated install.
+NTFS junctions. Stored bindings retain absolute paths for other drives and UNC
+roots. Supply an explicit `--home` when testing an isolated install.
+
+Windows host runners require Windows PowerShell 5.1 and use Job Objects to join
+their descendant processes on completion or cancellation. PATH lookup accepts
+native executables and `.cmd` or `.bat` shims. Kiro IDE discovery includes per-user
+and Program Files installations. Runner recovery files receive private NTFS
+permissions when created.
 
 ## Questions (one screen)
 
