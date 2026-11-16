@@ -51,9 +51,45 @@ public static class EinzbernFiles {
   static extern SafeFileHandle OpenDirectory(string path, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
   [DllImport("kernel32.dll", SetLastError=true)]
   static extern bool FlushFileBuffers(SafeFileHandle handle);
+  [DllImport("advapi32.dll", EntryPoint="GetNamedSecurityInfoW", CharSet=CharSet.Unicode)]
+  static extern uint GetSecurity(string path, int type, uint sections, out IntPtr owner, out IntPtr group,
+    out IntPtr dacl, out IntPtr sacl, out IntPtr descriptor);
+  [DllImport("advapi32.dll")] static extern uint GetSecurityDescriptorLength(IntPtr descriptor);
+  [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr memory);
+  static bool Trusted(SecurityIdentifier sid, SecurityIdentifier current) {
+    return sid != null && (sid.Equals(current) || sid.IsWellKnown(WellKnownSidType.LocalSystemSid)
+      || sid.IsWellKnown(WellKnownSidType.BuiltinAdministratorsSid));
+  }
+  static int CheckAcl(string path, bool privateRead) {
+    IntPtr owner, group, dacl, sacl, descriptor;
+    uint error = GetSecurity(path, 1, 5, out owner, out group, out dacl, out sacl, out descriptor);
+    if (error != 0) return (int)error;
+    try {
+      // A NULL DACL gives everyone full access. An empty DACL grants no rights.
+      if (descriptor == IntPtr.Zero || owner == IntPtr.Zero || dacl == IntPtr.Zero) return 5;
+      byte[] bytes = new byte[GetSecurityDescriptorLength(descriptor)];
+      Marshal.Copy(descriptor, bytes, 0, bytes.Length);
+      var security = new RawSecurityDescriptor(bytes, 0);
+      var current = WindowsIdentity.GetCurrent().User;
+      if (!Trusted(security.Owner, current) || security.DiscretionaryAcl == null) return 5;
+      var rights = FileSystemRights.Write | FileSystemRights.DeleteSubdirectoriesAndFiles | FileSystemRights.Delete
+        | FileSystemRights.ChangePermissions | FileSystemRights.TakeOwnership;
+      if (privateRead) rights |= FileSystemRights.ReadData | FileSystemRights.ExecuteFile;
+      uint mask = (uint)rights | 0x50000000u; // GENERIC_ALL and GENERIC_WRITE
+      if (privateRead) mask |= 0xA0000000u;   // GENERIC_READ and GENERIC_EXECUTE
+      foreach (GenericAce entry in security.DiscretionaryAcl) {
+        var rule = entry as QualifiedAce;
+        if (rule == null) return 5;
+        if (rule.AceQualifier == AceQualifier.AccessAllowed && ((uint)rule.AccessMask & mask) != 0
+          && !Trusted(rule.SecurityIdentifier, current)) return 5;
+      }
+      return 0;
+    } finally { LocalFree(descriptor); }
+  }
   public static int Main(string[] args) {
     if (args.Length != 2) return 87;
     if (args[0] == "create") return CreatePrivate(args[1]);
+    if (args[0] == "acl-write" || args[0] == "acl-private") return CheckAcl(args[1], args[0] == "acl-private");
     bool probe = args[0] == "probe";
     if (!probe && args[0] != "flush") return 87;
     // FILE_ADD_FILE and FILE_ADD_SUBDIRECTORY check the caller's token without writing.
@@ -90,12 +126,12 @@ public static class EinzbernFiles {
   return fileHelper;
 }
 
-function useWindowsDirectoryHandle(path, operation) {
+function runWindowsFileOperation(path, operation) {
   execFileSync(windowsFileHelper(), [operation, toNamespacedPath(path)], { windowsHide: true, timeout: 15_000, stdio: "ignore" });
 }
 
-export function syncWindowsDirectory(path) { useWindowsDirectoryHandle(path, "flush"); }
-export function assertWritableWindowsDirectory(path) { useWindowsDirectoryHandle(path, "probe"); }
+export function syncWindowsDirectory(path) { runWindowsFileOperation(path, "flush"); }
+export function assertWritableWindowsDirectory(path) { runWindowsFileOperation(path, "probe"); }
 
 /** Create the name and its private DACL together, then bind Node's handle to that exact file. */
 export async function openPrivateWindowsFile(path) {
@@ -131,18 +167,9 @@ export function queryWindows(script, timeoutMs = 5000) {
 }
 
 export function hasPrivateWindowsPermissions(path, privateRead = false) {
-  const encodedPath = Buffer.from(path, "utf8").toString("base64");
   try {
-    return queryWindows(`
-$path = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedPath}'));
-$acl = Get-Acl -LiteralPath $path;
-$trusted = @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value, 'S-1-5-18', 'S-1-5-32-544');
-$safe = $trusted -contains $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;
-$write = [Security.AccessControl.FileSystemRights]'Write,DeleteSubdirectoriesAndFiles,Delete,ChangePermissions,TakeOwnership${privateRead ? ",ReadData,ExecuteFile" : ""}';
-foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
-  if ($rule.AccessControlType -eq 'Allow' -and ($rule.FileSystemRights -band $write) -ne 0 -and $trusted -notcontains $rule.IdentityReference.Value) { $safe = $false; }
-}
-ConvertTo-Json -Compress -InputObject $safe`) === true;
+    runWindowsFileOperation(path, privateRead ? "acl-private" : "acl-write");
+    return true;
   } catch { return false; }
 }
 
