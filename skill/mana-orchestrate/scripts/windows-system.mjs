@@ -6,6 +6,8 @@ import { lstat, open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, toNamespacedPath } from "node:path";
 
+// Add-Type may need to start the framework compiler and scan a new assembly on a cold runner.
+const nativeBuildTimeoutMs = 60_000;
 let fileHelper;
 
 /** Build a process-local native helper under the caller's protected temp directory. */
@@ -17,7 +19,7 @@ export function compileWindowsHelper(name, source) {
   const encodedSource = Buffer.from(source).toString("base64");
   const encodedExecutable = Buffer.from(executable).toString("base64");
   try {
-    queryWindows(`$source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedSource}')); $output=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedExecutable}')); Add-Type -TypeDefinition $source -OutputAssembly $output -OutputType ConsoleApplication; ConvertTo-Json -InputObject $true`, 15_000);
+    queryWindows(`$source=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedSource}')); $output=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedExecutable}')); Add-Type -TypeDefinition $source -OutputAssembly $output -OutputType ConsoleApplication; ConvertTo-Json -InputObject $true`, nativeBuildTimeoutMs);
   } catch (error) {
     try { unlinkSync(executable); } catch { /* compilation may not have created a file */ }
     rmdirSync(directory);
@@ -214,7 +216,7 @@ public static class EinzbernPrivateDirectory {
 '@;
 $errorCode = [EinzbernPrivateDirectory]::Create($path, $acl.GetSecurityDescriptorBinaryForm());
 if ($errorCode -ne 0 -and $errorCode -ne 183) { throw [ComponentModel.Win32Exception]::new($errorCode); }
-ConvertTo-Json -InputObject ($errorCode -eq 0)`, 15_000);
+ConvertTo-Json -InputObject ($errorCode -eq 0)`, nativeBuildTimeoutMs);
 }
 
 /** Query the kernel object, including membership, instead of trusting an environment marker. */
