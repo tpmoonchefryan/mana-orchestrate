@@ -73,7 +73,6 @@ jobs:
           npm_config_offline: "true"
         run: |
           export HOME="$RUNNER_TEMP/helper-home" EINZBERN_HOME="$RUNNER_TEMP/helper-device"
-          export USERPROFILE="$HOME"
           mkdir -p "$HOME" "$EINZBERN_HOME"
           pnpm run --silent build
           node scripts/verify-helper-generated.mjs --helper "$GITHUB_WORKSPACE/helper"
