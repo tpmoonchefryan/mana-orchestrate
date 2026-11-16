@@ -30,7 +30,7 @@ export function compileWindowsHelper(name, source) {
 }
 
 /** Compile once per process so frequent durable writes avoid repeated PowerShell startup. */
-export function syncWindowsDirectory(path) {
+function useWindowsDirectoryHandle(path, writableOnly) {
   if (!directoryFlusher) {
     const source = `using System; using System.Runtime.InteropServices;
 public static class FlushDirectory {
@@ -38,16 +38,21 @@ public static class FlushDirectory {
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool FlushFileBuffers(IntPtr handle);
   [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
   public static int Main(string[] args) {
-    IntPtr handle = CreateFile(args[0], 0x40000000, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
+    bool probe = args[1] == "probe";
+    // FILE_ADD_FILE and FILE_ADD_SUBDIRECTORY check the calling token without mutating the directory.
+    IntPtr handle = CreateFile(args[0], probe ? 6u : 0x40000000u, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
     if (handle == new IntPtr(-1)) return Marshal.GetLastWin32Error();
-    try { return FlushFileBuffers(handle) ? 0 : Marshal.GetLastWin32Error(); }
+    try { return probe || FlushFileBuffers(handle) ? 0 : Marshal.GetLastWin32Error(); }
     finally { CloseHandle(handle); }
   }
 }`;
     directoryFlusher = compileWindowsHelper("flush-directory.exe", source);
   }
-  execFileSync(directoryFlusher, [toNamespacedPath(path)], { windowsHide: true, timeout: 15_000, stdio: "ignore" });
+  execFileSync(directoryFlusher, [toNamespacedPath(path), writableOnly ? "probe" : "flush"], { windowsHide: true, timeout: 15_000, stdio: "ignore" });
 }
+
+export function syncWindowsDirectory(path) { useWindowsDirectoryHandle(path, false); }
+export function assertWritableWindowsDirectory(path) { useWindowsDirectoryHandle(path, true); }
 
 let privateFileCreator;
 
@@ -98,7 +103,7 @@ public static class EinzbernPrivateFile {
   try {
     identity = execFileSync(privateFileCreator, [toNamespacedPath(path)], { encoding: "utf8", windowsHide: true, timeout: 15_000 }).trim();
   } catch (error) {
-    if (error.status === 80 || error.status === 183) throw Object.assign(new Error("Private file already exists"), { code: "EEXIST" });
+    if (error.status === 80 || error.status === 183) throw Object.assign(new Error("EEXIST: private file already exists"), { code: "EEXIST", syscall: "open", path });
     throw error;
   }
   const matches = stats => stats.isFile() && stats.nlink === 1n && `${stats.dev} ${stats.ino}` === identity;
