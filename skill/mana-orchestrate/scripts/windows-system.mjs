@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { rmdirSync, unlinkSync } from "node:fs";
-import { link, lstat, open, rmdir, unlink } from "node:fs/promises";
+import { lstat, open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, toNamespacedPath } from "node:path";
 
@@ -49,29 +49,67 @@ public static class FlushDirectory {
   execFileSync(directoryFlusher, [toNamespacedPath(path)], { windowsHide: true, timeout: 15_000, stdio: "ignore" });
 }
 
-/** Publish an empty, private file without exposing a permissive ACL between create and chmod. */
+let privateFileCreator;
+
+/** Create the name and its private DACL together, then bind Node's handle to that exact file. */
 export async function openPrivateWindowsFile(path) {
-  const directory = join(dirname(path), `.einzbern-private-${randomUUID()}`);
-  if (!createPrivateWindowsDirectory(directory)) throw new Error("Private staging directory already exists");
-  const staged = join(directory, "file");
-  let handle;
-  let published = false;
+  if (!privateFileCreator) {
+    const source = `using System;
+using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using Microsoft.Win32.SafeHandles;
+public static class EinzbernPrivateFile {
+  [StructLayout(LayoutKind.Sequential)]
+  struct SecurityAttributes { public int Length; public IntPtr Descriptor; public int InheritHandle; }
+  [StructLayout(LayoutKind.Sequential)]
+  struct FileIdInfo { public ulong Volume; public ulong Low; public ulong High; }
+  [DllImport("kernel32.dll", EntryPoint="CreateFileW", CharSet=CharSet.Unicode, SetLastError=true)]
+  static extern SafeFileHandle CreateFile(string path, uint access, uint share, ref SecurityAttributes security, uint disposition, uint flags, IntPtr template);
+  [DllImport("kernel32.dll", SetLastError=true)]
+  static extern bool GetFileInformationByHandleEx(SafeFileHandle handle, int kind, out FileIdInfo info, uint size);
+  public static int Main(string[] args) {
+    var owner = WindowsIdentity.GetCurrent().User;
+    var acl = new FileSecurity();
+    acl.SetOwner(owner);
+    acl.SetAccessRuleProtection(true, false);
+    foreach (var sid in new [] {owner, new SecurityIdentifier("S-1-5-18"), new SecurityIdentifier("S-1-5-32-544")})
+      acl.AddAccessRule(new FileSystemAccessRule(sid, FileSystemRights.FullControl, AccessControlType.Allow));
+    byte[] descriptor = acl.GetSecurityDescriptorBinaryForm();
+    var pinned = GCHandle.Alloc(descriptor, GCHandleType.Pinned);
+    try {
+      var security = new SecurityAttributes { Length=Marshal.SizeOf(typeof(SecurityAttributes)), Descriptor=pinned.AddrOfPinnedObject() };
+      using (var file = CreateFile(args[0], 0xC0000000, 7, ref security, 1, 0x80, IntPtr.Zero)) {
+        if (file.IsInvalid) return Marshal.GetLastWin32Error();
+        FileIdInfo id;
+        if (!GetFileInformationByHandleEx(file, 18, out id, (uint)Marshal.SizeOf(typeof(FileIdInfo)))) return Marshal.GetLastWin32Error();
+        if (id.High != 0) return 50;
+        // libuv exposes the low DWORD of the volume serial as st_dev.
+        Console.WriteLine(((uint)id.Volume).ToString(CultureInfo.InvariantCulture) + " " + id.Low.ToString(CultureInfo.InvariantCulture));
+      }
+      return 0;
+    } finally { pinned.Free(); }
+  }
+}`;
+    privateFileCreator = compileWindowsHelper("create-private-file.exe", source);
+  }
+  let identity;
   try {
-    handle = await open(staged, "wx+", 0o600);
-    await link(staged, path);
-    published = true;
-    await unlink(staged);
-    await rmdir(directory);
+    identity = execFileSync(privateFileCreator, [toNamespacedPath(path)], { encoding: "utf8", windowsHide: true, timeout: 15_000 }).trim();
+  } catch (error) {
+    if (error.status === 80 || error.status === 183) throw Object.assign(new Error("Private file already exists"), { code: "EEXIST" });
+    throw error;
+  }
+  const matches = stats => stats.isFile() && stats.nlink === 1n && `${stats.dev} ${stats.ino}` === identity;
+  const named = await lstat(path, { bigint: true });
+  if (!matches(named)) throw new Error("Private file identity changed after creation");
+  const handle = await open(path, "r+");
+  try {
+    if (!matches(await handle.stat({ bigint: true })) || !matches(await lstat(path, { bigint: true }))) throw new Error("Private file identity changed while opening");
     return handle;
   } catch (error) {
-    if (published && handle) {
-      const opened = await handle.stat().catch(() => null);
-      const current = await lstat(path).catch(() => null);
-      if (opened && current?.dev === opened.dev && current?.ino === opened.ino) await unlink(path).catch(() => {});
-    }
-    await handle?.close();
-    await unlink(staged).catch(() => {});
-    await rmdir(directory).catch(() => {});
+    await handle.close();
     throw error;
   }
 }
@@ -87,7 +125,7 @@ export function queryWindows(script, timeoutMs = 5000) {
   }));
 }
 
-export function hasPrivateWindowsPermissions(path) {
+export function hasPrivateWindowsPermissions(path, privateRead = false) {
   const encodedPath = Buffer.from(path, "utf8").toString("base64");
   try {
     return queryWindows(`
@@ -95,7 +133,7 @@ $path = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedPa
 $acl = Get-Acl -LiteralPath $path;
 $trusted = @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value, 'S-1-5-18', 'S-1-5-32-544');
 $safe = $trusted -contains $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;
-$write = [Security.AccessControl.FileSystemRights]'Write,DeleteSubdirectoriesAndFiles,Delete,ChangePermissions,TakeOwnership';
+$write = [Security.AccessControl.FileSystemRights]'Write,DeleteSubdirectoriesAndFiles,Delete,ChangePermissions,TakeOwnership${privateRead ? ",ReadData,ExecuteFile" : ""}';
 foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
   if ($rule.AccessControlType -eq 'Allow' -and ($rule.FileSystemRights -band $write) -ne 0 -and $trusted -notcontains $rule.IdentityReference.Value) { $safe = $false; }
 }
