@@ -34,6 +34,28 @@ the user already has and fetches nothing, and `--version <version>` downloads th
 download is the only network use of the whole installation, so ask the user before it. The step
 answers `INSTALL_ENGINE_READY`; then plan as below.
 
+### Windows PowerShell
+
+Use the installed Node executable and quote paths containing spaces. This example
+installs a local release archive into an explicit device directory.
+
+```powershell
+node "<skill directory>\scripts\install.mjs" --archive "C:\Downloads\einzbern-<version>.tar.gz" --home "C:\Einzbern Device"
+node "C:\Einzbern Device\engine\einzbern.mjs" commands
+```
+
+The archive's SHA-256 sidecar is required when `--sha256` is omitted. Windows
+installation rejects reserved device names, alternate data streams, trailing
+dots or spaces and case-colliding file names. Runtime directory forwarding uses
+NTFS junctions. Stored bindings retain absolute paths for other drives and UNC
+roots. Supply an explicit `--home` when testing an isolated install.
+
+Windows host runners use the Windows PowerShell included with supported Windows versions and Job Objects to join
+their descendant processes on completion or cancellation. PATH lookup accepts
+native executables and `.cmd` or `.bat` shims. Kiro IDE discovery includes per-user
+and Program Files installations. Runner recovery files receive private NTFS
+permissions when created.
+
 ## Questions (one screen)
 
 Ask the whole list at once, in one message. The list is the same on both hosts: Claude Code asks
