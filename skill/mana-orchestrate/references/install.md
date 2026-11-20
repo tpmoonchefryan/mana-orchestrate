@@ -118,6 +118,14 @@ the global Skill copy under `${ANTIGRAVITY_CONFIG_DIR:-$HOME/.gemini/config}/ski
 Unrelated hook groups, skills, rules and plugins are preserved; setup does not install `agy`,
 Antigravity IDE or Antigravity App.
 
+When Devin is selected by its existing user configuration directory
+(`${XDG_CONFIG_HOME:-$HOME/.config}/devin`, or `%APPDATA%\devin` on Windows), fresh setup also
+manages only the Einzbern commands in the `hooks` key of its `config.json` and renders one subagent
+profile per tier row of the device policy's `devin` host under `agents/`. Other keys, hooks and
+profiles are preserved. A `config.json` that is not strict JSON is refused and left unchanged.
+Devin reads the Skill copy under `~/.agents/skills`, so no further copy is installed. Setup does
+not install Devin. See `specs/devin-host-v1.md`.
+
 ## Plan, final confirmation, apply
 
 1. Plan. Run `setup --mode fresh --project <dir> --at <UTC>`, with a flag for each answer already
