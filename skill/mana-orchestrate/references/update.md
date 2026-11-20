@@ -95,6 +95,10 @@ at all, and doctor does not report it.
   `"einzbern"` entries from the current and registered workspace `.agents/hooks.json` files on the device) and refresh its Skill copy from recorded
   ownership evidence. User-edited `"einzbern"` entries or commands are preserved and reported as a
   conflict; all other Antigravity hook groups, skills, rules and plugins remain intact.
+- When Devin is selected, update and repair reconcile only the Einzbern commands in the `hooks` key
+  of Devin's `config.json` and the `einzbern-*` subagent profiles of the device policy's `devin`
+  host. An edited managed hook group or profile is preserved and reported as a conflict. A model
+  policy change reaches the profiles at the next update or repair.
 - When upgrading from an engine whose update receipt has no `managedUpdates`, finish the same
   approved update with the newly installed engine: use `library-list` and `rule-list` to identify
   existing configured outputs, run `agents-render --project <registered output> --at <UTC>` for

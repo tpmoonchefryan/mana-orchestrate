@@ -28,6 +28,10 @@ group from Antigravity's `hooks.json` files (backing up modified files first, pr
 hook groups, and refusing overwrite if `"einzbern"` was edited) and moves the Antigravity Skill copy
 only when its current bytes still match the recorded digest. User-edited Skills remain intact.
 
+When Devin was selected, uninstall removes only the Einzbern commands from the `hooks` key of its
+`config.json` and the unmodified `einzbern-*` subagent profiles, after a backup. An edited managed
+hook group stops the removal for review; an edited profile is left in place.
+
 ## Questions (one screen)
 
 There is one question, asked once for all managed sections together, never section by section.
