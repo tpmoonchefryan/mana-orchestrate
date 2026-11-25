@@ -56,6 +56,76 @@ native executables and `.cmd` or `.bat` shims. Kiro IDE discovery includes per-u
 and Program Files installations. Runner recovery files receive private NTFS
 permissions when created.
 
+## Two separate checks: install succeeded vs. host ready
+
+Report engine installation and host readiness as two distinct checks. Passing the engine smoke
+check proves only that the release archive installed and launches; it does not prove a project is
+registered, native host hooks executed, or Codex peer dispatch is admitted.
+
+### Check 1: Install succeeded (read-only engine smoke)
+
+Run a minimal read-only check that requires only Node.js and the installed launcher — no `jq`, no
+registered project, and no host admission file.
+
+POSIX shell (`sh` / `bash` / `zsh`):
+
+```sh
+EINZBERN_LAUNCHER="${EINZBERN_HOME:-$HOME/.einzbern}/engine/einzbern.mjs"
+node "$EINZBERN_LAUNCHER" engine-list
+node "$EINZBERN_LAUNCHER" commands
+```
+
+Windows PowerShell:
+
+```powershell
+$einzbernHome = if ($env:EINZBERN_HOME) { $env:EINZBERN_HOME } else { Join-Path $HOME ".einzbern" }
+$launcher = Join-Path $einzbernHome "engine\einzbern.mjs"
+node $launcher engine-list
+node $launcher commands
+```
+
+Pass criteria: both commands exit `0`, `engine-list` returns `ENGINE_LIST_READY` with
+`current.version` matching the installed release, and `commands` returns `CLI_CATALOG_READY`.
+
+### Check 2: Host ready (project doctor and host-specific observation)
+
+After `setup --mode fresh --yes true` (or `restore`) registers the project, verify host and
+project configuration separately:
+
+POSIX shell:
+
+```sh
+node "${EINZBERN_HOME:-$HOME/.einzbern}/engine/einzbern.mjs" doctor --project .
+```
+
+Windows PowerShell:
+
+```powershell
+$einzbernHome = if ($env:EINZBERN_HOME) { $env:EINZBERN_HOME } else { Join-Path $HOME ".einzbern" }
+node (Join-Path $einzbernHome "engine\einzbern.mjs") doctor --project .
+```
+
+`doctor` checks local files and configuration (`hooks-present`, `skill-copies`, `registry`,
+`managed-sections`, etc.). Discovering a host directory or writing its config files does **not**
+certify that the host's native runtime loaded or fired a hook in a live session (for example,
+Kiro and Antigravity config presence does not prove an IDE hook ran, and DSH plugin status is
+reported read-only).
+
+**Codex native observation (separate prerequisite and failure branch):**
+Do not run `doctor --project . --codex-admission codex-admission.json` as an out-of-the-box
+install smoke.
+- **Prerequisite:** the project is registered, and `codex-admission.json` was freshly
+  machine-assembled (within 5 minutes) from the owning Codex App Server's JSON-RPC `initialize` →
+  `hooks/list` for `$PWD` together with SHA-256 hashes of the hook `sourcePath` and config
+  (see `docs/codex-native-controller.md`).
+- **Pass:** `doctor --project . --codex-admission codex-admission.json` returns `ok=true` and
+  `hooks-present.detail.codexGuard.ready=true`.
+- **Failure branch:** if `codex-admission.json` is unavailable, stale, disabled, untrusted, or
+  mismatched, report **Codex host / peer dispatch not ready** while keeping Check 1 (install
+  succeeded) separate. Do not report an engine install failure and do not treat passing local file
+  reconciliation as Codex readiness; re-observe from the owning App Server before starting any
+  dependent worker batch.
+
 ## Questions (one screen)
 
 Ask the whole list at once, in one message. The list is the same on both hosts: Claude Code asks

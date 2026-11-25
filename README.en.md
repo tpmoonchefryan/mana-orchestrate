@@ -6,22 +6,22 @@ The Grail grants wishes; Mana Orchestrate makes the mana flow to the right place
 
 [简体中文](README.md) · **English** · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md)
 
-![release](https://img.shields.io/badge/release-5.8.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
+![release](https://img.shields.io/badge/release-5.8.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20Kiro%20%C2%B7%20Antigravity%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
 
 [It does three things](#it-does-three-things) · [Install](#install) · [Once it is in](#once-it-is-in) · [How we reduce your usage](#how-we-reduce-your-usage) · [Version](#version) · [What is inside](#what-is-inside)
 
 </div>
 
 > [!TIP]
-> `npx skills add tpmoonchefryan/mana-orchestrate`, then tell your host "install Einzbern" inside the project.
+> Pin to release `v5.8.0` below (or track the default branch with `npx skills add tpmoonchefryan/mana-orchestrate`), then tell your host "install Einzbern" inside the project.
 
 ---
 
-It is the skill that brings Einzbern into Claude Code, Codex and DeepSeek Harness. Einzbern is project memory for those three hosts: work items, knowledge, and minutes appear in front of the model before the prompt that needs them. Mana is the memory in circulation; orchestrate is directing when it flows where. This skill tells the model when to call which engine feature, and it carries the install wizard.
+It is the skill that brings Einzbern into Claude Code, Codex, Kiro, Antigravity and DeepSeek Harness. Einzbern is project memory for these hosts: work items, knowledge, and minutes appear in front of the model before the prompt that needs them. Mana is the memory in circulation; orchestrate is directing when it flows where. This skill tells the model when to call which engine feature, and it carries the install wizard.
 
 ## It does three things
 
-**Brings Einzbern in.** You tell your host "install Einzbern" and the wizard takes over: one screen of questions, one confirmation, engine downloaded and verified, hook wired, both hosts done in one pass.
+**Brings Einzbern in.** You tell your host "install Einzbern" and the wizard takes over: one screen of questions, one confirmation, engine downloaded and verified, hook wired, detected hosts configured in one pass.
 
 **Tells the model when to do what.** One navigation table: recall before starting, write results back to the work item when done, record decisions as minutes, write lessons as cards. The engine generates the table for its own version, so every verb the model reads matches one in the engine.
 
@@ -29,21 +29,65 @@ It is the skill that brings Einzbern into Claude Code, Codex and DeepSeek Harnes
 
 ## Install
 
-With the skills command:
+Recommended pinned install for release tag `v5.8.0`:
 
+```sh
+git clone --branch v5.8.0 --depth 1 https://github.com/tpmoonchefryan/mana-orchestrate
+npx skills add ./mana-orchestrate
 ```
+
+To track the default branch instead:
+
+```sh
 npx skills add tpmoonchefryan/mana-orchestrate
 ```
 
 Or tell your host: find a skill called Mana Orchestrate and install it.
 
-It lands in the host's skills directory, `~/.claude/skills` for Claude Code and `~/.agents/skills` for Codex and DeepSeek Harness. In DeepSeek Harness, recall before each prompt comes through the dsh-mana-orchestrate plugin; no hook file is written. Then, in the project directory, say: install Einzbern.
+It lands in the host's skills directory: `~/.claude/skills` for Claude Code and `~/.agents/skills` for Codex and DeepSeek Harness. When an existing Kiro (`${KIRO_HOME:-$HOME/.kiro}` or project `.kiro/`) or Antigravity (`${ANTIGRAVITY_CONFIG_DIR}`, `~/.gemini/...`, or project `.agents/hooks.json`) config directory is detected, setup also manages its standalone config and skill copy without installing those host applications. In DeepSeek Harness, recall before each prompt comes through the `dsh-mana-orchestrate` plugin; no hook file is written. Then, in the project directory, say: install Einzbern.
 
 The wizard asks: fresh install or restore from an existing library, where `Ether` goes, whether that folder is cloud-synced, which language, and whether to write a navigation section into AGENTS.md. `Ether` is the folder name; you choose its parent on a local disk, external disk or in a synced folder. Later projects reuse the saved location by default. It then lists every file it is about to write, and you confirm once. The engine is downloaded from the release that matches this skill's version and verified against its digest before anything lands; with a local archive it installs offline.
 
 Everything after that is a mode of the same wizard: update, repair, migrate from TCRN Workflow, uninstall, health check. Say "update Einzbern" and that is it.
 
 It does not commit, push, edit your .gitignore, or delete anything, and it touches the network only to download the engine.
+
+### Two separate checks: install succeeded vs. host ready
+
+1. **Install succeeded (read-only engine smoke — no `jq`, registered project, or host admission file required):**
+
+   POSIX shell:
+
+   ```sh
+   EINZBERN_LAUNCHER="${EINZBERN_HOME:-$HOME/.einzbern}/engine/einzbern.mjs"
+   node "$EINZBERN_LAUNCHER" engine-list
+   node "$EINZBERN_LAUNCHER" commands
+   ```
+
+   Windows PowerShell:
+
+   ```powershell
+   $einzbernHome = if ($env:EINZBERN_HOME) { $env:EINZBERN_HOME } else { Join-Path $HOME ".einzbern" }
+   $launcher = Join-Path $einzbernHome "engine\einzbern.mjs"
+   node $launcher engine-list
+   node $launcher commands
+   ```
+
+   Both commands exiting `0` with `ENGINE_LIST_READY` (`current.version` = `5.8.0`) and `CLI_CATALOG_READY` confirms the device engine installed.
+
+2. **Host ready (project doctor and host-specific observation):** After project setup or restore, run `node "$EINZBERN_LAUNCHER" doctor --project .` (PowerShell: `node $launcher doctor --project .`). For Codex native peer dispatch, separately supply a fresh (within 5 minutes) `--codex-admission codex-admission.json` observation from the owning App Server and require `ok=true` and `hooks-present.detail.codexGuard.ready=true`; a missing or stale observation means the Codex host is not ready, not that the engine install failed.
+
+### Host support tiers
+
+Discovering a host directory and writing config files does **not** prove that native hooks executed in a live session or that production dispatch is admitted. Verify runtime behavior with `doctor`, `log/hook.ndjson`, and host-specific live observations.
+
+| Host | Config & skill wiring | Readiness boundary |
+| :--- | :--- | :--- |
+| **Claude Code** | `setup` writes native hooks and `~/.claude/skills` copy; keeps single-conversation native path. | Verify live hook execution with `doctor` and `log/hook.ndjson`. |
+| **Codex** | `setup` writes hooks and `~/.agents/skills` copy; supports dual-conversation coordination workflow. | Local file checks do not prove native admission; peer dispatch requires a live `--codex-admission` observation from the owning App Server. |
+| **DeepSeek Harness** | `~/.agents/skills` copy; pre-prompt recall runs via the `dsh-mana-orchestrate` plugin inside DSH (`setup` does not edit DSH profiles). | `doctor` inspects profiles read-only; plugin installation and launcher path are configured in DSH. |
+| **Kiro (CLI / IDE)** | Selected only when an existing global or project Kiro config directory is present; `setup` manages standalone Hooks and Skill copy without installing Kiro. | Config or CLI presence does not prove an IDE hook ran or CLI dispatch is ready. |
+| **Antigravity** | Selected only when an existing Antigravity config directory or project `.agents/hooks.json` is present; `setup` manages the `"einzbern"` hook group and global Skill copy without installing Antigravity. | Writing the hook group does not prove native hook execution or swarm dispatch readiness. |
 
 ## Once it is in
 

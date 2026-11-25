@@ -6,22 +6,22 @@
 
 [简体中文](README.md) · [English](README.en.md) · [日本語](README.ja.md) · **한국어** · [Français](README.fr.md)
 
-![release](https://img.shields.io/badge/release-5.8.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
+![release](https://img.shields.io/badge/release-5.8.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20Kiro%20%C2%B7%20Antigravity%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
 
 [하는 일은 세 가지](#하는-일은-세-가지) · [설치](#설치) · [설치한 뒤](#설치한-뒤) · [사용량을 줄이는 방법](#사용량을-줄이는-방법) · [버전](#버전) · [안에 있는 것](#안에-있는-것)
 
 </div>
 
 > [!TIP]
-> `npx skills add tpmoonchefryan/mana-orchestrate` 다음, 프로젝트에서 호스트에게 "Einzbern을 설치해 줘"라고 말한다.
+> 아래 `v5.8.0` 고정 태그로 설치하거나 `npx skills add tpmoonchefryan/mana-orchestrate`로 기본 브랜치를 추적한 다음, 프로젝트에서 호스트에게 "Einzbern을 설치해 줘"라고 말한다.
 
 ---
 
-Einzbern(아인츠베른)을 Claude Code, Codex, DeepSeek Harness에 연결하는 스킬이다. Einzbern은 이 세 호스트를 위한 프로젝트 기억으로, 작업 항목, 지식, 회의록이 필요한 프롬프트 앞에서 모델 앞에 나타난다. Mana는 흐르는 기억, Orchestrate는 그것을 언제 어디로 흘려보낼지 지휘하는 일. 이 스킬은 모델에게 엔진의 어느 기능을 언제 부를지 가르치고, 설치 마법사를 함께 담고 있다.
+Einzbern(아인츠베른)을 Claude Code, Codex, Kiro, Antigravity, DeepSeek Harness에 연결하는 스킬이다. Einzbern은 이 호스트들을 위한 프로젝트 기억으로, 작업 항목, 지식, 회의록이 필요한 프롬프트 앞에서 모델 앞에 나타난다. Mana는 흐르는 기억, Orchestrate는 그것을 언제 어디로 흘려보낼지 지휘하는 일. 이 스킬은 모델에게 엔진의 어느 기능을 언제 부를지 가르치고, 설치 마법사를 함께 담고 있다.
 
 ## 하는 일은 세 가지
 
-**Einzbern을 들여온다.** 호스트에게 "Einzbern을 설치해 줘"라고 말하면 마법사가 넘겨받는다. 한 화면의 질문, 한 번의 확인, 엔진 다운로드와 검증, 훅 연결. 두 호스트를 한 번에 끝낸다.
+**Einzbern을 들여온다.** 호스트에게 "Einzbern을 설치해 줘"라고 말하면 마법사가 넘겨받는다. 한 화면의 질문, 한 번의 확인, 엔진 다운로드와 검증, 훅 연결. 감지된 호스트를 한 번에 끝낸다.
 
 **언제 무엇을 할지 모델에게 알려 준다.** 내비게이션 표 한 장. 시작 전에 기억을 꺼내고, 마치면 결과를 작업 항목에 적어 넣고, 결정이 있으면 회의록에, 교훈이 있으면 카드에 쓴다. 표는 엔진이 자기 버전에 맞춰 생성하므로, 모델이 읽는 동사는 엔진의 동사와 하나하나 대응한다.
 
@@ -29,21 +29,65 @@ Einzbern(아인츠베른)을 Claude Code, Codex, DeepSeek Harness에 연결하�
 
 ## 설치
 
-skills 명령으로:
+릴리스 태그 `v5.8.0`에 고정하는 권장 설치:
 
+```sh
+git clone --branch v5.8.0 --depth 1 https://github.com/tpmoonchefryan/mana-orchestrate
+npx skills add ./mana-orchestrate
 ```
+
+기본 브랜치를 추적하려면 skills 명령으로:
+
+```sh
 npx skills add tpmoonchefryan/mana-orchestrate
 ```
 
 또는 호스트에게 말한다. Mana Orchestrate라는 스킬을 찾아서 설치해 줘.
 
-호스트의 skills 디렉터리에 놓인다. Claude Code는 `~/.claude/skills`, Codex와 DeepSeek Harness는 `~/.agents/skills`. DeepSeek Harness에서는 각 프롬프트 전의 회상을 플러그인 dsh-mana-orchestrate가 맡고, 훅 파일은 쓰지 않는다. 그다음 프로젝트 디렉터리에서 말한다. Einzbern을 설치해 줘.
+호스트의 skills 디렉터리에 놓인다. Claude Code는 `~/.claude/skills`, Codex와 DeepSeek Harness는 `~/.agents/skills`. 기존 Kiro(`${KIRO_HOME:-$HOME/.kiro}` 또는 프로젝트 `.kiro/`)나 Antigravity(`${ANTIGRAVITY_CONFIG_DIR}`, `~/.gemini/...` 또는 프로젝트 `.agents/hooks.json`) 설정 디렉터리가 감지되면 설정 마법사가 호스트 앱을 설치하지 않고 독립 설정과 스킬 사본도 관리한다. DeepSeek Harness에서는 각 프롬프트 전의 회상을 플러그인 `dsh-mana-orchestrate`가 맡고, 훅 파일은 쓰지 않는다. 그다음 프로젝트 디렉터리에서 말한다. Einzbern을 설치해 줘.
 
 마법사가 묻는 것은 새로 설치할지 기존 라이브러리에서 복원할지, `Ether`를 어디에 둘지, 그곳이 클라우드 동기화 폴더인지, 언어는 무엇인지, AGENTS.md에 내비게이션 절을 쓸지다. `Ether`는 폴더 이름이며, 상위 디렉터리는 로컬 디스크, 외장 디스크 또는 동기화 폴더에서 사용자가 선택한다. 이후 프로젝트는 저장된 위치를 기본으로 재사용한다. 마지막으로 기록할 파일을 전부 나열하고, 당신이 한 번만 확인한다. 엔진은 이 스킬과 같은 버전의 릴리스에서 내려받아 다이제스트를 검증한 뒤에야 놓인다. 로컬 압축 파일이 있으면 오프라인으로도 설치된다.
 
 그 뒤의 일은 모두 같은 마법사의 모드다. 업데이트, 복구, TCRN Workflow에서 이전, 제거, 상태 점검. "Einzbern을 업데이트해 줘"라고 말하면 된다.
 
 커밋도 푸시도 하지 않는다. 당신의 .gitignore를 고치지 않고, 아무것도 지우지 않으며, 엔진 다운로드 외에는 네트워크에 접속하지 않는다.
+
+### 두 가지 분리된 점검: 설치 성공 ≠ 호스트 준비 완료
+
+1. **설치 성공(읽기 전용 엔진 스모크 — `jq`, 등록된 프로젝트, 관측 파일 불필요):**
+
+   POSIX 셸:
+
+   ```sh
+   EINZBERN_LAUNCHER="${EINZBERN_HOME:-$HOME/.einzbern}/engine/einzbern.mjs"
+   node "$EINZBERN_LAUNCHER" engine-list
+   node "$EINZBERN_LAUNCHER" commands
+   ```
+
+   Windows PowerShell:
+
+   ```powershell
+   $einzbernHome = if ($env:EINZBERN_HOME) { $env:EINZBERN_HOME } else { Join-Path $HOME ".einzbern" }
+   $launcher = Join-Path $einzbernHome "engine\einzbern.mjs"
+   node $launcher engine-list
+   node $launcher commands
+   ```
+
+   두 명령이 모두 종료 코드 `0`으로 `ENGINE_LIST_READY`(`current.version` = `5.8.0`)와 `CLI_CATALOG_READY`를 반환하면 장치 엔진 설치가 성공한 것이다.
+
+2. **호스트 준비 완료(프로젝트 진단 및 호스트별 관측):** 프로젝트 설치 또는 복원 뒤 `node "$EINZBERN_LAUNCHER" doctor --project .`(PowerShell: `node $launcher doctor --project .`)을 실행한다. Codex 네이티브 파견에는 5분 이내에 소속 App Server에서 수집한 `--codex-admission codex-admission.json`을 별도로 전달해 `ok=true`와 `hooks-present.detail.codexGuard.ready=true`를 확인해야 하며, 관측이 없거나 만료된 경우 엔진 설치 실패가 아니라 Codex 호스트 미준비로 구분한다.
+
+### 호스트별 지원 수준
+
+호스트 디렉터리를 감지하고 설정을 기록했다고 해서 네이티브 훅이 실제 세션에서 실행되었거나 프로덕션 파견이 승인된 것은 아니다. 런타임 상태는 `doctor`, `log/hook.ndjson`, 호스트별 실시간 관측으로 확인한다.
+
+| 호스트 | 설정 및 스킬 연결 | 준비 완료 경계 |
+| :--- | :--- | :--- |
+| **Claude Code** | `setup`이 네이티브 훅과 `~/.claude/skills` 사본을 구성. 단일 주 대화 네이티브 경로 유지. | 실제 훅 실행은 `doctor`와 `log/hook.ndjson`으로 확인한다. |
+| **Codex** | `setup`이 훅과 `~/.agents/skills` 사본을 구성. 이중 대화 조정 워크플로 지원. | 로컬 파일 일치는 네이티브 승인의 증명이 아니며, 파견 전 소속 App Server의 `--codex-admission` 관측이 필요하다. |
+| **DeepSeek Harness** | `~/.agents/skills` 사본. 프롬프트 전 회상은 DSH 내부 `dsh-mana-orchestrate` 플러그인이 담당(`setup`은 DSH 프로필을 수정하지 않음). | `doctor`는 프로필을 읽기 전용으로 점검하며, 플러그인 설치와 런처 지정은 DSH에서 수행한다. |
+| **Kiro (CLI / IDE)** | 기존 전역/프로젝트 Kiro 설정 디렉터리가 있을 때만 `setup`이 독립 Hooks와 스킬 사본을 관리. Kiro 자체는 설치하지 않음. | 설정이나 CLI 존재는 IDE 훅 실행이나 CLI 파견 준비를 증명하지 않는다. |
+| **Antigravity** | 기존 Antigravity 설정 또는 `.agents/hooks.json`이 있을 때만 `setup`이 `"einzbern"` 훅 그룹과 전역 스킬 사본을 관리. 앱은 설치하지 않음. | 훅 그룹 기록은 네이티브 실행이나 스웜 파견 준비를 증명하지 않는다. |
 
 ## 설치한 뒤
 
