@@ -8,6 +8,7 @@ import { dirname, isAbsolute, join, toNamespacedPath } from "node:path";
 
 // Add-Type may need to start the framework compiler and scan a new assembly on a cold runner.
 const nativeBuildTimeoutMs = 60_000;
+const aclPolicyRejected = 0x20000001;
 let fileHelper;
 
 /** Build a process-local native helper under the caller's protected temp directory. */
@@ -63,17 +64,18 @@ public static class EinzbernFiles {
       || sid.IsWellKnown(WellKnownSidType.BuiltinAdministratorsSid));
   }
   static int CheckAcl(string path, bool privateRead) {
+    const int policyRejected = ${aclPolicyRejected};
     IntPtr owner, group, dacl, sacl, descriptor;
     uint error = GetSecurity(path, 1, 5, out owner, out group, out dacl, out sacl, out descriptor);
     if (error != 0) return (int)error;
     try {
       // A NULL DACL gives everyone full access. An empty DACL grants no rights.
-      if (descriptor == IntPtr.Zero || owner == IntPtr.Zero || dacl == IntPtr.Zero) return 5;
+      if (descriptor == IntPtr.Zero || owner == IntPtr.Zero || dacl == IntPtr.Zero) return policyRejected;
       byte[] bytes = new byte[GetSecurityDescriptorLength(descriptor)];
       Marshal.Copy(descriptor, bytes, 0, bytes.Length);
       var security = new RawSecurityDescriptor(bytes, 0);
       var current = WindowsIdentity.GetCurrent().User;
-      if (!Trusted(security.Owner, current) || security.DiscretionaryAcl == null) return 5;
+      if (!Trusted(security.Owner, current) || security.DiscretionaryAcl == null) return policyRejected;
       var rights = FileSystemRights.Write | FileSystemRights.DeleteSubdirectoriesAndFiles | FileSystemRights.Delete
         | FileSystemRights.ChangePermissions | FileSystemRights.TakeOwnership;
       if (privateRead) rights |= FileSystemRights.ReadData | FileSystemRights.ExecuteFile;
@@ -81,9 +83,9 @@ public static class EinzbernFiles {
       if (privateRead) mask |= 0xA0000000u;   // GENERIC_READ and GENERIC_EXECUTE
       foreach (GenericAce entry in security.DiscretionaryAcl) {
         var rule = entry as QualifiedAce;
-        if (rule == null) return 5;
+        if (rule == null) return policyRejected;
         if (rule.AceQualifier == AceQualifier.AccessAllowed && ((uint)rule.AccessMask & mask) != 0
-          && !Trusted(rule.SecurityIdentifier, current)) return 5;
+          && !Trusted(rule.SecurityIdentifier, current)) return policyRejected;
       }
       return 0;
     } finally { LocalFree(descriptor); }
@@ -168,11 +170,20 @@ export function queryWindows(script, timeoutMs = 5000) {
   }));
 }
 
-export function hasPrivateWindowsPermissions(path, privateRead = false) {
+export function inspectWindowsPermissions(path, privateRead = false) {
+  let executable;
+  try { executable = windowsFileHelper(); } catch { return "helper-unavailable"; }
   try {
-    runWindowsFileOperation(path, privateRead ? "acl-private" : "acl-write");
-    return true;
-  } catch { return false; }
+    execFileSync(executable, [privateRead ? "acl-private" : "acl-write", toNamespacedPath(path)], { windowsHide: true, timeout: 15_000, stdio: "ignore" });
+    return "accepted";
+  } catch (error) {
+    if (error.status === aclPolicyRejected) return "policy-rejected";
+    return error.code === "ENOENT" ? "helper-unavailable" : "query-failed";
+  }
+}
+
+export function hasPrivateWindowsPermissions(path, privateRead = false) {
+  return inspectWindowsPermissions(path, privateRead) === "accepted";
 }
 
 /** Atomically create an exclusive directory with its private DACL already in place. */

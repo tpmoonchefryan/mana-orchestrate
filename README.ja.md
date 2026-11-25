@@ -6,22 +6,22 @@
 
 [简体中文](README.md) · [English](README.en.md) · **日本語** · [한국어](README.ko.md) · [Français](README.fr.md)
 
-![release](https://img.shields.io/badge/release-5.0.1-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
+![release](https://img.shields.io/badge/release-5.8.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20Kiro%20%C2%B7%20Antigravity%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
 
 [やることは三つ](#やることは三つ) · [インストール](#インストール) · [入れたあと](#入れたあと) · [利用量を抑える仕組み](#利用量を抑える仕組み) · [バージョン](#バージョン) · [中身](#中身)
 
 </div>
 
 > [!TIP]
-> `npx skills add tpmoonchefryan/mana-orchestrate` のあと、プロジェクトでホストに「Einzbern をインストールして」と言う。
+> 下の `v5.8.0` 固定タグ入口を使うか、`npx skills add tpmoonchefryan/mana-orchestrate` で既定ブランチを追跡したあと、プロジェクトでホストに「Einzbern をインストールして」と言う。
 
 ---
 
-Einzbern（アインツベルン）を Claude Code、Codex、DeepSeek Harness に接続するスキルだ。Einzbern はその三つのホストのためのプロジェクト記憶で、作業項目、知識、議事録が、必要になるプロンプトの前にモデルの前へ現れる。Mana は巡る記憶、Orchestrate はそれをいつどこへ流すかの指揮。このスキルはモデルにエンジンのどの機能をいつ呼ぶかを教え、インストールウィザードを同梱する。
+Einzbern（アインツベルン）を Claude Code、Codex、Kiro、Antigravity、DeepSeek Harness に接続するスキルだ。Einzbern はこれらのホストのためのプロジェクト記憶で、作業項目、知識、議事録が、必要になるプロンプトの前にモデルの前へ現れる。Mana は巡る記憶、Orchestrate はそれをいつどこへ流すかの指揮。このスキルはモデルにエンジンのどの機能をいつ呼ぶかを教え、インストールウィザードを同梱する。
 
 ## やることは三つ
 
-**Einzbern を入れる。** ホストに「Einzbern をインストールして」と言えば、ウィザードが引き継ぐ。一画面の質問、一度の確認、エンジンのダウンロードと検証、フックの配線。二つのホストを一度に済ませる。
+**Einzbern を入れる。** ホストに「Einzbern をインストールして」と言えば、ウィザードが引き継ぐ。一画面の質問、一度の確認、エンジンのダウンロードと検証、フックの配線。検出されたホストを一度に済ませる。
 
 **いつ何をするかをモデルに教える。** ナビゲーション表が一枚。始める前に記憶を取り、終えたら結果を作業項目に書き戻し、決定があれば議事録に、教訓があればカードに書く。表はエンジンが自分のバージョンに合わせて生成するので、モデルが読む動詞はエンジンの動詞と一対一で対応する。
 
@@ -29,21 +29,65 @@ Einzbern（アインツベルン）を Claude Code、Codex、DeepSeek Harness �
 
 ## インストール
 
-skills コマンドで：
+リリースタグ `v5.8.0` に固定する推奨インストール：
 
+```sh
+git clone --branch v5.8.0 --depth 1 https://github.com/tpmoonchefryan/mana-orchestrate
+npx skills add ./mana-orchestrate
 ```
+
+既定ブランチを追跡する場合は skills コマンドで：
+
+```sh
 npx skills add tpmoonchefryan/mana-orchestrate
 ```
 
 あるいはホストに言う。Mana Orchestrate というスキルを探して入れて。
 
-置き場所はホストの skills ディレクトリ。Claude Code は `~/.claude/skills`、Codex と DeepSeek Harness は `~/.agents/skills`。DeepSeek Harness では各プロンプト前の想起をプラグイン dsh-mana-orchestrate が担い、フックファイルは書かない。次にプロジェクトのディレクトリで言う。Einzbern をインストールして。
+置き場所はホストの skills ディレクトリ。Claude Code は `~/.claude/skills`、Codex と DeepSeek Harness は `~/.agents/skills`。既存の Kiro（`${KIRO_HOME:-$HOME/.kiro}` またはプロジェクト `.kiro/`）や Antigravity（`${ANTIGRAVITY_CONFIG_DIR}`、`~/.gemini/...` またはプロジェクト `.agents/hooks.json`）の設定ディレクトリが検出された場合、セットアップはホスト本体を入れずに独立設定とスキル複製も管理する。DeepSeek Harness では各プロンプト前の想起をプラグイン `dsh-mana-orchestrate` が担い、フックファイルは書かない。次にプロジェクトのディレクトリで言う。Einzbern をインストールして。
 
 ウィザードが尋ねるのは、新規か既存の庫からの復元か、`Ether` をどこに置くか、そこがクラウド同期フォルダか、言語は何か、AGENTS.md にナビゲーション節を書くか。`Ether` はフォルダ名で、親ディレクトリはローカルディスク、外付けディスク、同期フォルダから使用者が選ぶ。後続のプロジェクトは保存済みの場所を既定で再利用する。最後に書き込む予定のファイルを全部列挙し、あなたが一度だけ確認する。エンジンはこのスキルと同じバージョンのリリースからダウンロードされ、ダイジェストを検証してから配置される。ローカルのアーカイブがあればオフラインでも入る。
 
 その後のことはすべて同じウィザードのモードだ。更新、修復、TCRN Workflow からの移行、アンインストール、健全性チェック。「Einzbern を更新して」と言えばよい。
 
 コミットもプッシュもしない。あなたの .gitignore を書き換えず、何も削除せず、エンジンのダウンロード以外でネットワークに触れない。
+
+### 二つの独立した確認：インストール成功 ≠ ホスト準備完了
+
+1. **インストール成功（読み取り専用スモーク、`jq`・登録済みプロジェクト・観測ファイル不要）：**
+
+   POSIX シェル：
+
+   ```sh
+   EINZBERN_LAUNCHER="${EINZBERN_HOME:-$HOME/.einzbern}/engine/einzbern.mjs"
+   node "$EINZBERN_LAUNCHER" engine-list
+   node "$EINZBERN_LAUNCHER" commands
+   ```
+
+   Windows PowerShell：
+
+   ```powershell
+   $einzbernHome = if ($env:EINZBERN_HOME) { $env:EINZBERN_HOME } else { Join-Path $HOME ".einzbern" }
+   $launcher = Join-Path $einzbernHome "engine\einzbern.mjs"
+   node $launcher engine-list
+   node $launcher commands
+   ```
+
+   両方とも終了コード `0` で `ENGINE_LIST_READY`（`current.version` が `5.8.0`）と `CLI_CATALOG_READY` を返せば、デバイスへのエンジン導入は成功している。
+
+2. **ホスト準備完了（プロジェクト診断とホスト固有の観測）：** プロジェクトのセットアップまたは復元後に `node "$EINZBERN_LAUNCHER" doctor --project .`（PowerShell は `node $launcher doctor --project .`）を実行する。Codex のネイティブ派遣には、さらに 5 分以内に所属 App Server から取得した `--codex-admission codex-admission.json` を渡し、`ok=true` と `hooks-present.detail.codexGuard.ready=true` を確認する。観測が欠落または失効している場合はエンジン導入失敗ではなく Codex ホスト未準備として扱う。
+
+### ホストごとの対応水準
+
+ホストの設定ディレクトリを検出して設定を書き込めても、ネイティブフックが実セッションで実行されたことや本番派遣の許可を証明するものではない。実行時の確認には `doctor`、`log/hook.ndjson`、および各ホストのライブ観測を使う。
+
+| ホスト | 設定とスキルの接続 | 準備完了の境界 |
+| :--- | :--- | :--- |
+| **Claude Code** | `setup` がネイティブフックと `~/.claude/skills` 複製を配置。単一主対話のネイティブ経路を維持。 | 実セッションのフック実行は `doctor` と `log/hook.ndjson` で確認する。 |
+| **Codex** | `setup` がフックと `~/.agents/skills` 複製を配置。双対話の調整ワークフローに対応。 | ローカルファイル一致はネイティブ許可の証明ではない。派遣前に所属 App Server の `--codex-admission` 観測が必要。 |
+| **DeepSeek Harness** | `~/.agents/skills` 複製。プロンプト前想起は DSH 内の `dsh-mana-orchestrate` プラグインが担当し、`setup` は DSH プロファイルを書き換えない。 | `doctor` は読み取り専用で状態を報告。プラグインの導入とランチャー設定は DSH 側で行う。 |
+| **Kiro（CLI / IDE）** | 既存のグローバル／プロジェクト Kiro 設定があるときのみ `setup` が独立 Hooks とスキル複製を管理。Kiro 本体は入れない。 | 設定や CLI の存在は IDE フック実行や CLI 派遣準備の証明ではない。 |
+| **Antigravity** | 既存の Antigravity 設定または `.agents/hooks.json` があるときのみ `setup` が `"einzbern"` フック群とグローバルスキル複製を管理。本体は入れない。 | フック群の書き込みはネイティブ実行やスウォーム派遣準備の証明ではない。 |
 
 ## 入れたあと
 
@@ -153,7 +197,7 @@ CC の四対話では、それぞれ約 **2.9%、3.0%、2.4%、11.1%** で、3.8
 
 ## バージョン
 
-Einzbern と同じバージョン番号、同じリリース。現在は 5.0.1。この README と SKILL.md のナビゲーション表は Einzbern のリリース時に生成される。このリポジトリでは文書を手で編集しない。
+Einzbern と同じバージョン番号、同じリリース。現在は 5.8.0。この README と SKILL.md のナビゲーション表は Einzbern のリリース時に生成される。このリポジトリでは文書を手で編集しない。
 
 ## 中身
 

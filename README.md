@@ -6,22 +6,22 @@
 
 **简体中文** · [English](README.en.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Français](README.fr.md)
 
-![release](https://img.shields.io/badge/release-5.0.1-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
+![release](https://img.shields.io/badge/release-5.8.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20Kiro%20%C2%B7%20Antigravity%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
 
 [它做三件事](#它做三件事) · [安装](#安装) · [装好之后](#装好之后) · [我们如何节省你的用量](#我们如何节省你的用量) · [版本](#版本) · [里面有什么](#里面有什么)
 
 </div>
 
 > [!TIP]
-> `npx skills add tpmoonchefryan/mana-orchestrate`，然后在项目里对宿主说「安装 Einzbern」。
+> 固定版本安装见下方 `v5.8.0` 入口，或用 `npx skills add tpmoonchefryan/mana-orchestrate` 跟踪默认分支，然后在项目里对宿主说「安装 Einzbern」。
 
 ---
 
-它是把 Einzbern 接进 Claude Code、Codex 与 DeepSeek Harness 的 skill。Einzbern 是给这三个宿主的项目记忆：工单、知识、纪要，在需要的那条 prompt 前出现在模型面前。Mana 是在其中流转的记忆，Orchestrate 是指挥它何时流向哪里。这个 skill 告诉模型什么时候该调引擎的哪个功能，并带着安装向导。
+它是把 Einzbern 接进 Claude Code、Codex、Kiro、Antigravity 与 DeepSeek Harness 的 skill。Einzbern 是给这些宿主的项目记忆：工单、知识、纪要，在需要的那条 prompt 前出现在模型面前。Mana 是在其中流转的记忆，Orchestrate 是指挥它何时流向哪里。这个 skill 告诉模型什么时候该调引擎的哪个功能，并带着安装向导。
 
 ## 它做三件事
 
-**把 Einzbern 装进来。** 你对宿主说一句「安装 Einzbern」，向导接手：一屏问题，一次确认，下载与校验引擎，接好钩子，两个宿主一次装完。
+**把 Einzbern 装进来。** 你对宿主说一句「安装 Einzbern」，向导接手：一屏问题，一次确认，下载与校验引擎，接好钩子，已检测到的宿主一次装完。
 
 **告诉模型什么时候做什么。** 一张导航表：开工先取记忆，做完把结果记回工单，有决定记纪要，有教训写卡片。表由引擎按版本生成，模型读到的动词与引擎里的一一对应。
 
@@ -29,21 +29,65 @@
 
 ## 安装
 
-用 skills 命令：
+推荐固定到当前发布 tag `v5.8.0`（经过验证的固定版本入口）：
 
+```sh
+git clone --branch v5.8.0 --depth 1 https://github.com/tpmoonchefryan/mana-orchestrate
+npx skills add ./mana-orchestrate
 ```
+
+如果要直接跟踪默认分支，可以用 skills 命令：
+
+```sh
 npx skills add tpmoonchefryan/mana-orchestrate
 ```
 
 或者对宿主说：找一个叫 Mana Orchestrate 的 skill，装上。
 
-它会落在宿主的 skills 目录里，Claude Code 是 `~/.claude/skills`，Codex 与 DeepSeek Harness 是 `~/.agents/skills`。DeepSeek Harness 的每条 prompt 前召回由插件 dsh-mana-orchestrate 接入，不写钩子文件。然后在项目目录里说：安装 Einzbern。
+它会落在宿主的 skills 目录里：Claude Code 是 `~/.claude/skills`，Codex 与 DeepSeek Harness 是 `~/.agents/skills`。当设备上已有 Kiro（`${KIRO_HOME:-$HOME/.kiro}` 或项目 `.kiro/`）或 Antigravity（`${ANTIGRAVITY_CONFIG_DIR}`、`~/.gemini/...` 或项目 `.agents/hooks.json`）配置目录时，向导也会为对应表面管理独立配置和 skill 副本（不安装宿主程序本身）。DeepSeek Harness 的每条 prompt 前召回由插件 `dsh-mana-orchestrate` 接入，不写钩子文件。然后在项目目录里说：安装 Einzbern。
 
 向导会问：全新安装还是从已有库恢复，`Ether` 放哪，是否在云同步文件夹里，用什么语言，要不要在 AGENTS.md 写导航段。`Ether` 是文件夹名称，父目录由你选择，可以在本地磁盘、外置磁盘或同步文件夹中；后续项目默认复用已选位置。最后列出将写入的文件，你确认一次。引擎从与本 skill 同版本的发布下载，校验摘要后才落地；有本地压缩包也可以离线装。
 
 之后的事都是同一个向导的模式：更新、修复、从 TCRN Workflow 迁移、卸载、体检。对宿主说「更新 Einzbern」就行。
 
 它不提交、不推送、不改你的 .gitignore、不删任何东西，除下载引擎外不联网。
+
+### 两步分开验收：安装成功 ≠ 宿主就绪
+
+1. **安装成功（只读引擎冒烟，不需要 `jq`、已注册项目或宿主观测文件）：**
+
+   POSIX shell：
+
+   ```sh
+   EINZBERN_LAUNCHER="${EINZBERN_HOME:-$HOME/.einzbern}/engine/einzbern.mjs"
+   node "$EINZBERN_LAUNCHER" engine-list
+   node "$EINZBERN_LAUNCHER" commands
+   ```
+
+   Windows PowerShell：
+
+   ```powershell
+   $einzbernHome = if ($env:EINZBERN_HOME) { $env:EINZBERN_HOME } else { Join-Path $HOME ".einzbern" }
+   $launcher = Join-Path $einzbernHome "engine\einzbern.mjs"
+   node $launcher engine-list
+   node $launcher commands
+   ```
+
+   两条命令均退出 `0`，返回 `ENGINE_LIST_READY`（`current.version` 为 `5.8.0`）和 `CLI_CATALOG_READY`，即表示设备端引擎安装成功。
+
+2. **宿主就绪（项目配置与宿主专项观测）：** 完成项目安装或恢复后，运行 `node "$EINZBERN_LAUNCHER" doctor --project .`（PowerShell 用 `node $launcher doctor --project .`）。Codex 原生派工还需另行提供 5 分钟内由所属 App Server 生成的 `--codex-admission codex-admission.json` 观测文件，并核对 `ok=true` 与 `hooks-present.detail.codexGuard.ready=true`；观测缺失或失效时应视为 Codex 宿主未就绪，而不是引擎安装失败。
+
+### 各宿主支持层级
+
+能发现宿主目录并写入配置，**不代表**原生 hook 已在实际会话中执行，也不代表生产环境可直接派工；运行期状态以 `doctor`、`log/hook.ndjson` 和对应宿主的实时观测为准。
+
+| 宿主 | 配置与 skill 接入 | 宿主就绪边界 |
+| :--- | :--- | :--- |
+| **Claude Code** | `setup` 写入原生钩子配置与 `~/.claude/skills` 副本；保留单主对话原生路径。 | 写入配置后仍需在真实会话通过 `doctor` 与 `log/hook.ndjson` 核验钩子触发。 |
+| **Codex** | `setup` 写入钩子配置与 `~/.agents/skills` 副本；支持双对话协调工作流。 | 本地文件通过不代表原生准入就绪；派工前必须有同会话 App Server 的 `--codex-admission` 实时观测。 |
+| **DeepSeek Harness** | `~/.agents/skills` 副本；每条 prompt 前召回由 DSH 内的 `dsh-mana-orchestrate` 插件承担，`setup` 不改写 DSH 配置。 | `doctor` 仅只读报告各 profile 插件状态与启动器路径，需在 DSH 内完成插件安装与指向。 |
+| **Kiro（CLI / IDE）** | 仅在检测到已有全局或项目 Kiro 配置目录时，由 `setup` 管理独立 Hooks 文件与 Skill 副本；不安装 Kiro。 | 发现配置或 CLI 存在，不代表 IDE Hook 已运行或 CLI 会话已就绪。 |
+| **Antigravity** | 仅在检测到已有 Antigravity 配置目录或项目 `.agents/hooks.json` 时，由 `setup` 管理 `"einzbern"` 钩子组与全局 Skill 副本；不安装 Antigravity。 | 写入钩子组不代表原生 hook 已执行或蜂群派工已就绪。 |
 
 ## 装好之后
 
@@ -153,7 +197,7 @@ CC 的四个会话分别约为 **2.9%、3.0%、2.4%、11.1%**，3.8% 是加权�
 
 ## 版本
 
-与 Einzbern 同一版本号，同一次发布。当前 5.0.1。本 README 与 SKILL.md 里的导航表都由 Einzbern 发布时生成，这个仓库里不手改文档。
+与 Einzbern 同一版本号，同一次发布。当前 5.8.0。本 README 与 SKILL.md 里的导航表都由 Einzbern 发布时生成，这个仓库里不手改文档。
 
 ## 里面有什么
 

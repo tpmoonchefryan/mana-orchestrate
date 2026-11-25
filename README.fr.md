@@ -6,22 +6,22 @@ Le Graal exauce les vœux ; Mana Orchestrate fait couler le mana au bon endroit,
 
 [简体中文](README.md) · [English](README.en.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Français**
 
-![release](https://img.shields.io/badge/release-5.0.1-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
+![release](https://img.shields.io/badge/release-5.8.0-blue?style=flat-square) ![license](https://img.shields.io/badge/license-Apache--2.0-lightgrey?style=flat-square) ![skill](https://img.shields.io/badge/skill-Claude%20Code%20%C2%B7%20Codex%20%C2%B7%20Kiro%20%C2%B7%20Antigravity%20%C2%B7%20DeepSeek%20Harness-informational?style=flat-square) ![engine](https://img.shields.io/badge/engine-Einzbern-9cf?style=flat-square)
 
 [Il fait trois choses](#il-fait-trois-choses) · [Installation](#installation) · [Une fois en place](#une-fois-en-place) · [Comment nous réduisons votre consommation](#comment-nous-réduisons-votre-consommation) · [Version](#version) · [Ce qu'il contient](#ce-quil-contient)
 
 </div>
 
 > [!TIP]
-> `npx skills add tpmoonchefryan/mana-orchestrate`, puis dites à votre hôte « installe Einzbern » dans le projet.
+> Épinglez la release `v5.8.0` ci-dessous (ou suivez la branche par défaut avec `npx skills add tpmoonchefryan/mana-orchestrate`), puis dites à votre hôte « installe Einzbern » dans le projet.
 
 ---
 
-C'est le skill qui amène Einzbern dans Claude Code, Codex et DeepSeek Harness. Einzbern est la mémoire de projet de ces trois hôtes : éléments de travail, connaissances et comptes rendus apparaissent devant le modèle avant le prompt qui en a besoin. Le mana est la mémoire en circulation ; orchestrer, c'est décider quand elle coule et vers où. Ce skill apprend au modèle quand appeler quelle fonction du moteur, et embarque l'assistant d'installation.
+C'est le skill qui amène Einzbern dans Claude Code, Codex, Kiro, Antigravity et DeepSeek Harness. Einzbern est la mémoire de projet de ces hôtes : éléments de travail, connaissances et comptes rendus apparaissent devant le modèle avant le prompt qui en a besoin. Le mana est la mémoire en circulation ; orchestrer, c'est décider quand elle coule et vers où. Ce skill apprend au modèle quand appeler quelle fonction du moteur, et embarque l'assistant d'installation.
 
 ## Il fait trois choses
 
-**Il fait entrer Einzbern.** Vous dites à votre hôte « installe Einzbern » et l'assistant prend la main : un écran de questions, une confirmation, moteur téléchargé et vérifié, hook branché, les deux hôtes réglés en une passe.
+**Il fait entrer Einzbern.** Vous dites à votre hôte « installe Einzbern » et l'assistant prend la main : un écran de questions, une confirmation, moteur téléchargé et vérifié, hook branché, hôtes détectés configurés en une passe.
 
 **Il dit au modèle quand faire quoi.** Une table de navigation : rappeler la mémoire avant de commencer, reporter le résultat dans l'élément de travail une fois fini, noter les décisions en comptes rendus, écrire les leçons en cartes. Le moteur génère la table pour sa propre version, si bien que chaque verbe lu par le modèle correspond à un verbe du moteur.
 
@@ -29,21 +29,65 @@ C'est le skill qui amène Einzbern dans Claude Code, Codex et DeepSeek Harness. 
 
 ## Installation
 
-Avec la commande skills :
+Installation recommandée épinglée au tag `v5.8.0` :
 
+```sh
+git clone --branch v5.8.0 --depth 1 https://github.com/tpmoonchefryan/mana-orchestrate
+npx skills add ./mana-orchestrate
 ```
+
+Pour suivre la branche par défaut à la place :
+
+```sh
 npx skills add tpmoonchefryan/mana-orchestrate
 ```
 
 Ou dites à votre hôte : trouve un skill nommé Mana Orchestrate et installe-le.
 
-Il se place dans le répertoire des skills de l'hôte, `~/.claude/skills` pour Claude Code et `~/.agents/skills` pour Codex et DeepSeek Harness. Dans DeepSeek Harness, le rappel avant chaque prompt passe par le plugin dsh-mana-orchestrate ; aucun fichier de hook n'est écrit. Puis, dans le répertoire du projet, dites : installe Einzbern.
+Il se place dans le répertoire des skills de l'hôte : `~/.claude/skills` pour Claude Code et `~/.agents/skills` pour Codex et DeepSeek Harness. Lorsqu'un répertoire de configuration Kiro (`${KIRO_HOME:-$HOME/.kiro}` ou `.kiro/` du projet) ou Antigravity (`${ANTIGRAVITY_CONFIG_DIR}`, `~/.gemini/...` ou `.agents/hooks.json` du projet) existe déjà, l'assistant gère aussi sa configuration autonome et sa copie du skill sans installer ces applications hôtes. Dans DeepSeek Harness, le rappel avant chaque prompt passe par le plugin `dsh-mana-orchestrate` ; aucun fichier de hook n'est écrit. Puis, dans le répertoire du projet, dites : installe Einzbern.
 
 L’assistant demande : installation neuve ou restauration depuis une bibliothèque existante, où placer `Ether`, si ce dossier est synchronisé dans le cloud, quelle langue, et s’il faut écrire une section de navigation dans AGENTS.md. `Ether` est le nom du dossier ; vous choisissez son parent sur un disque local, externe ou dans un dossier synchronisé. Les projets suivants réutilisent par défaut cet emplacement enregistré. Il liste ensuite chaque fichier qu’il s’apprête à écrire, et vous confirmez une seule fois. Le moteur est téléchargé depuis la release qui porte la même version que ce skill et vérifié contre son empreinte avant d’être posé ; avec une archive locale, il s’installe hors ligne.
 
 Tout ce qui suit est un mode du même assistant : mise à jour, réparation, migration depuis TCRN Workflow, désinstallation, bilan de santé. Dites « mets à jour Einzbern », et c'est tout.
 
 Il ne commite pas, ne pousse pas, ne modifie pas votre .gitignore, ne supprime rien, et ne touche au réseau que pour télécharger le moteur.
+
+### Deux vérifications distinctes : installation réussie ≠ hôte prêt
+
+1. **Installation réussie (test moteur en lecture seule — sans `jq`, projet enregistré ni fichier d'observation) :**
+
+   Shell POSIX :
+
+   ```sh
+   EINZBERN_LAUNCHER="${EINZBERN_HOME:-$HOME/.einzbern}/engine/einzbern.mjs"
+   node "$EINZBERN_LAUNCHER" engine-list
+   node "$EINZBERN_LAUNCHER" commands
+   ```
+
+   Windows PowerShell :
+
+   ```powershell
+   $einzbernHome = if ($env:EINZBERN_HOME) { $env:EINZBERN_HOME } else { Join-Path $HOME ".einzbern" }
+   $launcher = Join-Path $einzbernHome "engine\einzbern.mjs"
+   node $launcher engine-list
+   node $launcher commands
+   ```
+
+   Un code de sortie `0` avec `ENGINE_LIST_READY` (`current.version` = `5.8.0`) et `CLI_CATALOG_READY` confirme que le moteur est installé sur l'appareil.
+
+2. **Hôte prêt (diagnostic projet et observation spécifique à l'hôte) :** Après l'installation ou la restauration du projet, exécutez `node "$EINZBERN_LAUNCHER" doctor --project .` (PowerShell : `node $launcher doctor --project .`). Pour la délégation native Codex, fournissez séparément une observation fraîche (moins de 5 minutes) `--codex-admission codex-admission.json` issue de l'App Server propriétaire et exigez `ok=true` et `hooks-present.detail.codexGuard.ready=true` ; une observation absente ou périmée signifie que l'hôte Codex n'est pas prêt, pas que l'installation du moteur a échoué.
+
+### Niveaux de prise en charge des hôtes
+
+Découvrir un répertoire hôte et écrire ses fichiers de configuration ne prouve **pas** que les hooks natifs se sont exécutés dans une session réelle ni que la délégation en production est admise. Vérifiez l'exécution réelle avec `doctor`, `log/hook.ndjson` et les observations en direct propres à chaque hôte.
+
+| Hôte | Configuration et câblage du skill | Limite de disponibilité |
+| :--- | :--- | :--- |
+| **Claude Code** | `setup` écrit les hooks natifs et la copie `~/.claude/skills` ; conserve le parcours natif à conversation unique. | Vérifiez l'exécution réelle des hooks avec `doctor` et `log/hook.ndjson`. |
+| **Codex** | `setup` écrit les hooks et la copie `~/.agents/skills` ; prend en charge le workflow de coordination à double conversation. | Les vérifications locales ne prouvent pas l'admission native ; la délégation requiert une observation `--codex-admission` en direct de l'App Server propriétaire. |
+| **DeepSeek Harness** | Copie `~/.agents/skills` ; le rappel avant prompt passe par le plugin `dsh-mana-orchestrate` dans DSH (`setup` ne modifie pas les profils DSH). | `doctor` inspecte les profils en lecture seule ; l'installation du plugin et le chemin du lanceur se configurent dans DSH. |
+| **Kiro (CLI / IDE)** | Sélectionné uniquement lorsqu'un répertoire Kiro global ou projet existe déjà ; `setup` gère les Hooks autonomes et la copie du skill sans installer Kiro. | La présence de la config ou du CLI ne prouve pas l'exécution d'un hook IDE ni la disponibilité CLI. |
+| **Antigravity** | Sélectionné uniquement lorsqu'un répertoire Antigravity ou `.agents/hooks.json` existe déjà ; `setup` gère le groupe `"einzbern"` et la copie globale du skill sans installer Antigravity. | Écrire le groupe de hooks ne prouve pas l'exécution native ni la disponibilité de la délégation en essaim. |
 
 ## Une fois en place
 
@@ -153,7 +197,7 @@ Le niveau économique compte encore **567 réponses mesurées après expiration 
 
 ## Version
 
-Même numéro de version qu'Einzbern, même release. Actuellement 5.0.1. Ce README et la table de navigation de SKILL.md sont générés à la release d'Einzbern ; dans ce dépôt, les documents ne sont pas modifiés à la main.
+Même numéro de version qu'Einzbern, même release. Actuellement 5.8.0. Ce README et la table de navigation de SKILL.md sont générés à la release d'Einzbern ; dans ce dépôt, les documents ne sont pas modifiés à la main.
 
 ## Ce qu'il contient
 
