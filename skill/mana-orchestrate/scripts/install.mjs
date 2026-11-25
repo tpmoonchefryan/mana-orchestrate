@@ -32,7 +32,7 @@ import { constants as bufferConstants } from "node:buffer";
 
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { copyFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { copyFile, lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -272,14 +272,31 @@ function engineUpdate(tree, release, home, at) {
   fail("INSTALL_ENGINE_UPDATE_FAILED", `engine-update did not answer: ${String(run.error?.message ?? run.stderr ?? "").trim().split("\n").at(-1)}`);
 }
 
-async function placeLaunchers(home, version) {
+async function launcherMatches(source, target) {
+  try {
+    if (!(await lstat(target)).isFile()) return false;
+    return (await readFile(target)).equals(await readFile(source));
+  } catch { return false; }
+}
+
+async function placeLaunchers(home, current) {
   const engine = join(home, ENGINE_DIRECTORY);
   const placed = {};
   for (const launcher of LAUNCHERS) {
+    const source = join(engine, current.version, ...launcher.from);
     const target = join(engine, launcher.to);
-    const partial = join(engine, `.${launcher.to}.${randomBytes(6).toString("hex")}.partial`);
-    await copyFile(join(engine, version, ...launcher.from), partial);
-    await rename(partial, target);
+    if (!(await launcherMatches(source, target))) {
+      const partial = join(engine, `.${launcher.to}.${randomBytes(6).toString("hex")}.partial`);
+      try {
+        await copyFile(source, partial);
+        await rename(partial, target);
+      } catch (error) {
+        const cleanupError = await rm(partial, { force: true }).then(() => null, error => String(error?.message ?? error));
+        fail("INSTALL_LAUNCHER_UPDATE_FAILED",
+          `Engine ${current.version} is already current, but ${launcher.to} was not updated. Resolve the file error and retry the same installation: ${String(error?.message ?? error)}`,
+          { current, launcher: target, code: error?.code, ...(cleanupError === null ? {} : { partial, cleanupError }) });
+      }
+    }
     placed[launcher.to] = target;
   }
   return placed;
@@ -317,7 +334,7 @@ async function install(options) {
       if (probe.status !== 0 || missing.length) fail("INSTALL_SKILL_ENGINE_MISMATCH", "The archive's generated Skill and engine commands do not match", { missing });
     }
     const updated = engineUpdate(tree, release, options.home, at);
-    report = { version: release.version, installed: updated.installed, current: updated.current, launchers: await placeLaunchers(options.home, release.version) };
+    report = { version: release.version, installed: updated.installed, current: updated.current, launchers: await placeLaunchers(options.home, updated.current) };
   } catch (error) {
     primary = error;
   }

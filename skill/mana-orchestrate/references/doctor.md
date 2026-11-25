@@ -27,6 +27,13 @@ are. Say in one plain sentence what it means and give the handling below. List t
 check's `detail.hints` under the table, if any; a hint never makes a check not ok. Fix nothing
 before the user agrees.
 
+Always present **Install status** (`engine-version`: the device engine is installed and launches)
+separately from **Host readiness** (`hooks-present`, `skill-copies`, `managed-sections`, and any
+native host observation such as `hooks-present.detail.codexGuard.ready`). A passing
+`engine-version` check confirms only that the engine installed, not that a host is ready to run
+hooks or dispatch workers; conversely, a missing or failing `--codex-admission` observation or an
+unverified native hook load means the host is not ready, not that the engine installation failed.
+
 ## The eight checks
 
 ### engine-version

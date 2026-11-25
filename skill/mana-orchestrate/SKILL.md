@@ -11,7 +11,7 @@ Execution protocol: tcrn.host-execution-request.v1.
 
 ## Navigation
 
-Root: nonempty absolute `EINZBERN_HOME`, else `~/.einzbern`. commands/<verb> --help: flags; --at UTC. Read engine bundle `specs/` beside `scripts/`, not this Skill.
+Root: absolute `EINZBERN_HOME` or `~/.einzbern`. Flags: `e <verb> --help`; --at UTC. Read engine bundle `specs/` beside `scripts/`, not this Skill.
 
 Local writes queue together, not cross-device exclusion. Remote submission: serial handoff. Dot installs no native hook, lifecycle manager or sync service.
 
@@ -29,7 +29,7 @@ Local writes queue together, not cross-device exclusion. Remote submission: seri
 
 Coding: `specs/coding-style-v1.md`.
 
-Version: patch fixes, minor adds, major breaks; --version.
+Patch fixes, minor adds, major breaks. `e engine-list`: `current.version`.
 
 ## Core commands
 
