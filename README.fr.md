@@ -50,7 +50,9 @@ L’assistant demande : installation neuve ou restauration depuis une bibliothè
 
 Tout ce qui suit est un mode du même assistant : mise à jour, réparation, migration depuis TCRN Workflow, désinstallation, bilan de santé. Dites « mets à jour Einzbern », et c'est tout.
 
-Il ne commite pas, ne pousse pas, ne modifie pas votre .gitignore, ne supprime rien, et ne touche au réseau que pour télécharger le moteur.
+L’assistant ne commite pas, ne pousse pas, ne modifie pas votre .gitignore et ne supprime rien. Il se connecte pour télécharger le moteur et peut utiliser une archive locale pour l’installer hors ligne.
+
+Quand vous lancez la lecture de Storybook dans Atelier, le navigateur demande les métadonnées Storybook et le manifeste facultatif des composants à l’adresse de l’autorité de conception que vous avez configurée.
 
 ### Deux vérifications distinctes : installation réussie ≠ hôte prêt
 
@@ -112,7 +114,7 @@ Les tâches longues consomment des ressources au-delà de l'écriture du code. L
 | **Claude Code : parcours natif conservé** | Une seule conversation principale coordonne les sous-agents exécutants avec l'exécution en arrière-plan et les notifications de fin de l'hôte. | Les notifications natives ramènent les résultats. Les optimisations portent ensuite sur les catégories de modèles, les réveils programmés, le contenu retourné et le rythme d'acceptation. Les échantillons actuels ne démontrent pas un besoin général de conversation de coordination distincte. |
 | **DeepSeek Harness : parcours natif conservé** | Une seule conversation principale utilise les sous-agents gérés par le runtime ; le plugin Mana Orchestrate assure l'intégration de la mémoire et la déduplication du pont. | Le runtime gère les notifications de fin et la libération des ressources. Les journaux historiques montrent déjà plusieurs retours regroupés dans une seule réponse principale. Les optimisations supplémentaires s'évaluent selon les modèles réels et la part du coût de coordination. |
 
-Cette forme à deux conversations est **l'unique workflow Codex** ; elle remplace l'ancien parcours fondé sur le hook collecteur, sans modifier les autres hôtes. La coordination économique reçoit directement les résultats des exécutants, sans agent collecteur distinct. L'implémentation, l'intégration et l'acceptation indépendante incombent aux agents exécutants correspondants. Les catégories principale et économique sont obligatoires ; la catégorie phare est facultative.
+Codex utilise deux conversations par défaut. La conversation de coordination au palier économique reçoit directement les résultats des agents exécutants. Réglez `execution.codexDualConversation` sur `false` sur l’appareil pour que la conversation principale coordonne ses propres agents via le parcours natif et lise leurs résultats. Le réglage `execution.codexAllowNonCoordinatorPolling` apparaît uniquement en mode à deux conversations et est désactivé par défaut. Les agents exécutants concernés assurent l’implémentation, l’intégration et l’acceptation indépendante. Les catégories principale et économique sont obligatoires. La catégorie phare est facultative.
 
 Le modèle réalise cette orchestration avec les outils de l'hôte. Le moteur enregistre les lots et les reçus ; il ne crée pas lui-même de conversations, ne délègue pas de tâches et n'envoie pas de messages.
 

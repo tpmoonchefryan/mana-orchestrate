@@ -68,6 +68,13 @@ check. When selected, doctor inspects both the user `${ANTIGRAVITY_CONFIG_DIR:-$
 and workspace `.agents/hooks.json` scopes for the owned `"einzbern"` group and leaves any ownership
 conflict, duplicate scope, or unreadable file for review.
 
+Devin is reported in `detail.hosts` with `selection`, `applicability`, the CLI and Desktop versions,
+its hook count and its `profiles`. When not selected, nothing of Devin's fails the check. When
+selected, doctor compares the `hooks` key of Devin's `config.json` and the `einzbern-*` profiles
+with what setup would render (`HOOK_MISSING`, `HOOK_NOT_AS_EXPECTED`,
+`DEVIN_PROFILE_NOT_AS_EXPECTED`). The Claude Code registration Devin imports is judged under
+`claude-code`.
+
 DSH keeps no hook file: its Mana Orchestrate plugin runs the launcher. When the user's home has
 `.dsh/profiles/`, `detail.hosts` also has a `dsh` entry with one row per profile: whether its
 `package.json` lists `dsh-mana-orchestrate`, the installed version, and the launcher the plugin
